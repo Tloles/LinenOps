@@ -97,17 +97,15 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-semibold text-slate-500">Bins:</span>
-              <span className="text-4xl font-bold text-[#1B2541]">{receivedTotal}</span>
-              <span className="text-4xl font-semibold text-slate-500">Soiled Bins</span>
+              <span className="text-5xl font-bold text-[#1B2541]">{receivedTotal}</span>
+              <span className="text-3xl font-semibold text-slate-500">Soiled</span>
             </div>
             <CustomerGrid customers={receivedBins} />
           </div>
           <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-semibold text-slate-500">Bins:</span>
-              <span className="text-4xl font-bold text-[#1B2541]">{inProcessTotal}</span>
-              <span className="text-4xl font-semibold text-slate-500">In Process</span>
+              <span className="text-5xl font-bold text-[#1B2541]">{inProcessTotal}</span>
+              <span className="text-3xl font-semibold text-slate-500">In Process</span>
             </div>
             <CustomerGrid customers={inProcessBins} />
           </div>
