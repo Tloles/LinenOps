@@ -35,6 +35,7 @@ export default function RoutesPage() {
   const [expanded, setExpanded] = useState(null)
   const [newRouteName, setNewRouteName] = useState('')
   const [addStopValue, setAddStopValue] = useState({})
+  const [error, setError] = useState(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -53,32 +54,52 @@ export default function RoutesPage() {
 
   async function fetchRoutes() {
     setLoading(true)
+    setError(null)
 
-    let { data, error } = await supabase
-      .from('routes')
-      .select('*, route_stops(*, customers(id, name, logo_url), locations(id, name, weekly_par, deliveries_per_week, customers(id, name, logo_url)))')
-      .order('created_at', { ascending: true })
-
-    if (error) {
-      console.warn('[RoutesPage] Full query failed, falling back without locations:', error.message)
-      const fallback = await supabase
+    try {
+      // Try full query with locations join
+      let { data, error: queryErr } = await supabase
         .from('routes')
-        .select('*, route_stops(*, customers(id, name, logo_url))')
+        .select('*, route_stops(*, customers(id, name, logo_url), locations(id, name, weekly_par, deliveries_per_week, customers(id, name, logo_url)))')
         .order('created_at', { ascending: true })
-      data = fallback.data
-      error = fallback.error
-    }
 
-    if (error) {
-      console.error('[RoutesPage] fetchRoutes error:', error)
-    }
+      console.log('[RoutesPage] full query result:', { count: data?.length, error: queryErr?.message })
 
-    const sorted = (data || []).map((r) => ({
-      ...r,
-      route_stops: (r.route_stops || []).sort((a, b) => a.stop_order - b.stop_order),
-    }))
-    console.log('[RoutesPage] fetched', sorted.length, 'routes')
-    setRoutes(sorted)
+      if (queryErr) {
+        console.warn('[RoutesPage] Full query failed, falling back without locations:', queryErr.message)
+        const fallback = await supabase
+          .from('routes')
+          .select('*, route_stops(*, customers(id, name, logo_url))')
+          .order('created_at', { ascending: true })
+        data = fallback.data
+        queryErr = fallback.error
+        console.log('[RoutesPage] fallback result:', { count: data?.length, error: queryErr?.message })
+      }
+
+      if (queryErr) {
+        console.error('[RoutesPage] fetchRoutes error:', queryErr)
+        setError(`Failed to load routes: ${queryErr.message}`)
+        setLoading(false)
+        return
+      }
+
+      // Log raw route data to debug day_of_week
+      if (data?.length > 0) {
+        console.log('[RoutesPage] sample route keys:', Object.keys(data[0]))
+        console.log('[RoutesPage] sample route:', { id: data[0].id, name: data[0].name, day_of_week: data[0].day_of_week, schedule: data[0].schedule })
+      }
+
+      const sorted = (data || []).map((r) => ({
+        ...r,
+        route_stops: (r.route_stops || []).sort((a, b) => a.stop_order - b.stop_order),
+      }))
+      console.log('[RoutesPage] fetched', sorted.length, 'routes, selectedDay:', selectedDay)
+      console.log('[RoutesPage] routes with day_of_week:', sorted.filter(r => r.day_of_week).length, 'without:', sorted.filter(r => !r.day_of_week).length)
+      setRoutes(sorted)
+    } catch (err) {
+      console.error('[RoutesPage] fetchRoutes exception:', err)
+      setError(`Unexpected error: ${err.message}`)
+    }
     setLoading(false)
   }
 
@@ -104,15 +125,26 @@ export default function RoutesPage() {
   async function createRoute(e) {
     e.preventDefault()
     if (!newRouteName.trim()) return
+    setError(null)
 
-    const { data, error } = await supabase
+    const payload = { name: newRouteName.trim(), day_of_week: selectedDay }
+    console.log('[RoutesPage] createRoute payload:', payload)
+
+    const { data, error: insertErr } = await supabase
       .from('routes')
-      .insert({ name: newRouteName.trim(), day_of_week: selectedDay })
+      .insert(payload)
       .select()
 
-    console.log('[RoutesPage] createRoute result:', { data, error })
-    if (error) {
-      console.error('[RoutesPage] createRoute error:', error)
+    console.log('[RoutesPage] createRoute result:', { data, error: insertErr?.message, code: insertErr?.code })
+
+    if (insertErr) {
+      console.error('[RoutesPage] createRoute error:', insertErr)
+      // If day_of_week column doesn't exist, tell the user
+      if (insertErr.message?.includes('day_of_week') || insertErr.code === '42703') {
+        setError('The "day_of_week" column is missing from the routes table. Please add it in Supabase: ALTER TABLE routes ADD COLUMN day_of_week text;')
+      } else {
+        setError(`Failed to create route: ${insertErr.message}`)
+      }
       return
     }
     setNewRouteName('')
@@ -141,10 +173,12 @@ export default function RoutesPage() {
       row.location_id = id
     }
 
-    const { error } = await supabase.from('route_stops').insert(row)
+    console.log('[RoutesPage] addStop payload:', row)
+    const { error: stopErr } = await supabase.from('route_stops').insert(row)
 
-    if (error) {
-      console.error('[RoutesPage] addStop error:', error)
+    if (stopErr) {
+      console.error('[RoutesPage] addStop error:', stopErr)
+      setError(`Failed to add stop: ${stopErr.message}`)
       return
     }
     setAddStopValue((prev) => ({ ...prev, [routeId]: '' }))
@@ -196,6 +230,10 @@ export default function RoutesPage() {
 
   // Routes for the selected day
   const dayRoutes = routes.filter((r) => r.day_of_week === selectedDay)
+  // Also track routes that have NO day_of_week (pre-migration)
+  const unassignedRoutes = routes.filter((r) => !r.day_of_week)
+
+  console.log('[RoutesPage] render — selectedDay:', selectedDay, 'dayRoutes:', dayRoutes.length, 'unassigned:', unassignedRoutes.length, 'total:', routes.length)
 
   if (loading) {
     return <div className="text-center py-8 text-gray-500">Loading routes...</div>
@@ -204,6 +242,13 @@ export default function RoutesPage() {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900">Route Management</h2>
+
+      {/* Error banner */}
+      {error && (
+        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Day tabs */}
       <div className="flex gap-1 overflow-x-auto pb-1">
@@ -350,6 +395,42 @@ export default function RoutesPage() {
         <p className="text-gray-500 text-center py-4">
           No routes for {DAYS_OF_WEEK.find((d) => d.value === selectedDay)?.label}.
         </p>
+      )}
+
+      {/* Show unassigned routes that need day_of_week */}
+      {unassignedRoutes.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
+          <p className="text-sm font-medium text-amber-800">
+            {unassignedRoutes.length} route{unassignedRoutes.length !== 1 ? 's' : ''} missing day_of_week assignment:
+          </p>
+          {unassignedRoutes.map((r) => (
+            <div key={r.id} className="flex items-center gap-2">
+              <span className="text-sm text-gray-700">{r.name}</span>
+              <select
+                className="text-sm border border-gray-300 rounded px-2 py-1"
+                defaultValue=""
+                onChange={async (e) => {
+                  if (!e.target.value) return
+                  const { error: upErr } = await supabase
+                    .from('routes')
+                    .update({ day_of_week: e.target.value })
+                    .eq('id', r.id)
+                  if (upErr) {
+                    console.error('[RoutesPage] assign day error:', upErr)
+                    setError(`Failed to assign day: ${upErr.message}`)
+                  } else {
+                    fetchRoutes()
+                  }
+                }}
+              >
+                <option value="">Assign day...</option>
+                {DAYS_OF_WEEK.map((d) => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Add route for this day */}
