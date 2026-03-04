@@ -96,17 +96,11 @@ export default function DashboardPage() {
         <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">Plant Overview</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-bold text-[#1B2541]">{receivedTotal}</span>
-              <span className="text-3xl font-semibold text-slate-500">Soiled</span>
-            </div>
+            <p className="text-4xl font-bold text-[#1B2541]">{receivedTotal} <span className="text-slate-500">Soiled Bins</span></p>
             <CustomerGrid customers={receivedBins} />
           </div>
           <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-bold text-[#1B2541]">{inProcessTotal}</span>
-              <span className="text-3xl font-semibold text-slate-500">In Process</span>
-            </div>
+            <p className="text-4xl font-bold text-[#1B2541]">{inProcessTotal} <span className="text-slate-500">In Process</span></p>
             <CustomerGrid customers={inProcessBins} />
           </div>
         </div>
@@ -117,17 +111,11 @@ export default function DashboardPage() {
         <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Location</h3>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-bold text-[#1B2541]">{atPlantTotal}</span>
-              <span className="text-3xl font-semibold text-slate-500">At Plant</span>
-            </div>
+            <p className="text-4xl font-bold text-[#1B2541]">{atPlantTotal} <span className="text-slate-500">At Plant</span></p>
             <CustomerGrid customers={atPlantBins} />
           </div>
           <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-bold text-[#1B2541]">{onTruckTotal}</span>
-              <span className="text-3xl font-semibold text-slate-500">On Truck</span>
-            </div>
+            <p className="text-4xl font-bold text-[#1B2541]">{onTruckTotal} <span className="text-slate-500">On Truck</span></p>
             <CustomerGrid customers={onTruckBins} />
           </div>
         </div>
@@ -147,10 +135,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-3">
             {byStatus.map(({ status, total, customers }) => (
               <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-bold text-[#1B2541]">{total}</span>
-                  <span className="text-3xl font-semibold text-slate-500 capitalize">{dashLabel(status)}</span>
-                </div>
+                <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500 capitalize">{dashLabel(status)}</span></p>
                 <CustomerGrid customers={customers} />
               </div>
             ))}
