@@ -10,6 +10,7 @@ import CustomersPage from './pages/CustomersPage'
 import CustomerDetailPage from './pages/CustomerDetailPage'
 import RoutesPage from './pages/RoutesPage'
 import TodayRoutePage from './pages/TodayRoutePage'
+import DriverRoutePage from './pages/DriverRoutePage'
 import StopPage from './pages/StopPage'
 
 function ProtectedRoute({ children }) {
@@ -17,6 +18,13 @@ function ProtectedRoute({ children }) {
   if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>
   if (!session) return <Navigate to="/login" replace />
   return children
+}
+
+function RoleRedirect() {
+  const { role, loading } = useAuth()
+  if (loading) return null
+  if (role === 'driver') return <Navigate to="/routes/today" replace />
+  return <Navigate to="/dashboard" replace />
 }
 
 export default function App() {
@@ -30,7 +38,7 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<RoleRedirect />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="scan" element={<ScanPage />} />
         <Route path="bins" element={<BinListPage />} />
@@ -39,6 +47,7 @@ export default function App() {
         <Route path="customers/:id" element={<CustomerDetailPage />} />
         <Route path="routes" element={<RoutesPage />} />
         <Route path="routes/today" element={<TodayRoutePage />} />
+        <Route path="routes/today/:routeId" element={<DriverRoutePage />} />
         <Route path="routes/today/:routeId/stops/:stopId" element={<StopPage />} />
       </Route>
     </Routes>

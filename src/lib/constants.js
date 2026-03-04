@@ -34,14 +34,12 @@ export const SCAN_STATUSES = [
 ]
 
 export const CUSTOMER_TYPES = [
-  { value: 'hotel', label: 'Hotel (Full-Service)' },
+  { value: 'hotel', label: 'Hotel' },
   { value: 'limited_service', label: 'Limited Service' },
-  { value: 'massage_envy', label: 'Massage Envy' },
-  { value: 'hand_and_stone', label: 'Hand & Stone' },
+  { value: 'wellness', label: 'Wellness' },
+  { value: 'specialty', label: 'Specialty' },
 ]
 
-export const WELLNESS_TYPES = ['massage_envy', 'hand_and_stone']
-
 export function isWellnessType(type) {
-  return WELLNESS_TYPES.includes(type)
+  return type === 'wellness'
 }

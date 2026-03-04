@@ -37,18 +37,33 @@ export default function StopPage() {
 
   async function fetchStopData() {
     setLoading(true)
-    const { data: stopData, error: stopErr } = await supabase
+
+    // Try full query with locations join first
+    let { data: stopData, error: stopErr } = await supabase
       .from('route_stops')
       .select('*, customers(id, name, address, logo_url), locations(id, name, weekly_par, deliveries_per_week, customer_id, customers(id, name, address, logo_url))')
       .eq('id', stopId)
       .single()
 
+    // Fallback: if locations join fails (column not yet migrated), fetch without it
+    if (stopErr) {
+      console.warn('[StopPage] Full query failed, falling back without locations:', stopErr.message)
+      const fallback = await supabase
+        .from('route_stops')
+        .select('*, customers(id, name, address, logo_url)')
+        .eq('id', stopId)
+        .single()
+      stopData = fallback.data
+      stopErr = fallback.error
+    }
+
     if (stopErr || !stopData) {
-      console.error('Error fetching stop:', stopErr)
+      console.error('[StopPage] fetchStopData error:', stopErr)
       setLoading(false)
       return
     }
 
+    console.log('[StopPage] loaded stop:', stopData.id, stopData.location_id ? 'wellness' : 'hotel')
     setStop(stopData)
     setLoading(false)
   }
@@ -222,7 +237,7 @@ export default function StopPage() {
 
     if (error) {
       if (error.code === '23505') {
-        navigate('/routes/today')
+        navigate(`/routes/today/${routeId}`)
         return
       }
       console.error('Error completing stop:', error)
@@ -231,7 +246,7 @@ export default function StopPage() {
       return
     }
 
-    navigate('/routes/today')
+    navigate(`/routes/today/${routeId}`)
   }
 
   // ── Render ──
@@ -249,7 +264,7 @@ export default function StopPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate('/routes/today')}
+          onClick={() => navigate(`/routes/today/${routeId}`)}
           className="min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

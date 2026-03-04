@@ -19,8 +19,8 @@ CREATE TYPE bin_status AS ENUM (
 CREATE TYPE customer_type AS ENUM (
   'hotel',
   'limited_service',
-  'massage_envy',
-  'hand_and_stone'
+  'wellness',
+  'specialty'
 );
 
 CREATE TYPE user_role AS ENUM (
@@ -112,10 +112,10 @@ CREATE TABLE delivery_logs (
 -- ============================================
 
 CREATE TABLE routes (
-  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name       text NOT NULL,
-  schedule   integer[] NOT NULL DEFAULT '{}',   -- days 0-6 (Sun-Sat)
-  created_at timestamptz DEFAULT now()
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name         text NOT NULL,
+  day_of_week  text NOT NULL,   -- 'monday', 'tuesday', etc.
+  created_at   timestamptz DEFAULT now()
 );
 
 CREATE TABLE route_stops (

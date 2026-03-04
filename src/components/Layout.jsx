@@ -52,7 +52,9 @@ export default function Layout() {
         <NavTab to="/scan">Scan</NavTab>
         <NavTab to="/bins">Bins</NavTab>
         <NavTab to="/customers">Customers</NavTab>
-        <NavTab to={routesPath(role)}>Routes</NavTab>
+        {role !== 'production' && (
+          <NavTab to={routesPath(role)}>Routes</NavTab>
+        )}
       </nav>
 
       <main className="flex-1 p-2 sm:p-3 w-full">
