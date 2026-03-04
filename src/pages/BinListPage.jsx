@@ -114,7 +114,7 @@ export default function BinListPage() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-900">Bins</h2>
-        {role === 'owner' && !showForm && (
+        {role !== 'driver' && !showForm && (
           <button
             onClick={openAddForm}
             className="min-h-[48px] inline-flex items-center px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700"
@@ -125,7 +125,7 @@ export default function BinListPage() {
       </div>
 
       {/* Inline Add Bin Form */}
-      {showForm && role === 'owner' && (
+      {showForm && role !== 'driver' && (
         <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-5 mb-4 space-y-3">
           <h3 className="font-semibold text-gray-900">Register New Bin</h3>
 
@@ -213,7 +213,7 @@ export default function BinListPage() {
       {bins.length === 0 && !showForm ? (
         <div className="text-center py-12 text-gray-500">
           No bins registered yet.
-          {role === 'owner' && (
+          {role !== 'driver' && (
             <button onClick={openAddForm} className="block mx-auto mt-2 text-blue-600 hover:underline">
               Register your first bin
             </button>

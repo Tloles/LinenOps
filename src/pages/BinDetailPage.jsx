@@ -53,7 +53,7 @@ export default function BinDetailPage() {
 
   useEffect(() => {
     fetchData()
-    if (role === 'owner') fetchCustomers()
+    if (role !== 'driver') fetchCustomers()
   }, [id, role])
 
   async function handleRemoveBin() {
@@ -164,7 +164,7 @@ export default function BinDetailPage() {
         )}
 
         {/* Owner actions */}
-        {role === 'owner' && (
+        {role !== 'driver' && (
           <div className="mt-6 space-y-4">
             {/* Remove / Undo Remove */}
             {isRetired ? (
