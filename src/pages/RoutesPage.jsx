@@ -36,6 +36,8 @@ export default function RoutesPage() {
   const [newRouteName, setNewRouteName] = useState('')
   const [addStopValue, setAddStopValue] = useState({})
   const [error, setError] = useState(null)
+  const [editingRoute, setEditingRoute] = useState(null)
+  const [editingName, setEditingName] = useState('')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -228,6 +230,27 @@ export default function RoutesPage() {
     fetchRoutes()
   }
 
+  async function renameRoute(routeId) {
+    const trimmed = editingName.trim()
+    if (!trimmed || trimmed === routes.find((r) => r.id === routeId)?.name) {
+      setEditingRoute(null)
+      return
+    }
+    const { error: renameErr } = await supabase
+      .from('routes')
+      .update({ name: trimmed })
+      .eq('id', routeId)
+    if (renameErr) {
+      console.error('[RoutesPage] renameRoute error:', renameErr)
+      setError(`Failed to rename route: ${renameErr.message}`)
+    } else {
+      setRoutes((prev) =>
+        prev.map((r) => (r.id === routeId ? { ...r, name: trimmed } : r))
+      )
+    }
+    setEditingRoute(null)
+  }
+
   // Routes for the selected day
   const dayRoutes = routes.filter((r) => r.day_of_week === selectedDay)
   // Also track routes that have NO day_of_week (pre-migration)
@@ -300,28 +323,61 @@ export default function RoutesPage() {
           >
             {/* Route header */}
             <div className="p-4 flex items-center justify-between">
-              <button
-                onClick={() => setExpanded(isExpanded ? null : route.id)}
-                className="flex items-center gap-2 text-left"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <button
+                  onClick={() => setExpanded(isExpanded ? null : route.id)}
+                  className="shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-                <h3 className="text-base font-semibold text-gray-900">{route.name}</h3>
-                <span className="text-sm text-gray-400">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                {editingRoute === route.id ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') renameRoute(route.id)
+                      if (e.key === 'Escape') setEditingRoute(null)
+                    }}
+                    onBlur={() => renameRoute(route.id)}
+                    className="text-base font-semibold text-gray-900 border border-blue-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0 flex-1"
+                  />
+                ) : (
+                  <button
+                    onClick={() => { setEditingRoute(route.id); setEditingName(route.name) }}
+                    className="flex items-center gap-1.5 text-left min-w-0 group"
+                    title="Click to rename"
+                  >
+                    <h3 className="text-base font-semibold text-gray-900 truncate">{route.name}</h3>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-3.5 w-3.5 text-gray-300 group-hover:text-gray-500 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                )}
+                <span className="text-sm text-gray-400 shrink-0">
                   ({route.route_stops.length} stop{route.route_stops.length !== 1 ? 's' : ''})
                 </span>
-              </button>
+              </div>
               <button
                 onClick={() => deleteRoute(route.id)}
-                className="text-sm text-gray-400 hover:text-red-600 px-2 py-1"
+                className="text-sm text-gray-400 hover:text-red-600 px-2 py-1 shrink-0"
               >
                 Delete
               </button>
