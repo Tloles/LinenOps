@@ -48,10 +48,10 @@ export default function Layout() {
       </header>
 
       <nav className="bg-white border-b border-gray-200 px-4 flex gap-1 overflow-x-auto">
-        <NavTab to="/dashboard">Dashboard</NavTab>
+        {role !== 'driver' && <NavTab to="/dashboard">Dashboard</NavTab>}
         <NavTab to="/scan">Scan</NavTab>
-        <NavTab to="/bins">Bins</NavTab>
-        <NavTab to="/customers">Customers</NavTab>
+        {role === 'owner' && <NavTab to="/bins">Bins</NavTab>}
+        {role === 'owner' && <NavTab to="/customers">Customers</NavTab>}
         {role !== 'production' && (
           <NavTab to={routesPath(role)}>Routes</NavTab>
         )}
