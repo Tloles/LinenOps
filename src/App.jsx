@@ -12,6 +12,7 @@ import RoutesPage from './pages/RoutesPage'
 import TodayRoutePage from './pages/TodayRoutePage'
 import DriverRoutePage from './pages/DriverRoutePage'
 import StopPage from './pages/StopPage'
+import WashPage from './pages/WashPage'
 
 function ProtectedRoute({ children }) {
   const { session, loading } = useAuth()
@@ -41,6 +42,7 @@ export default function App() {
         <Route index element={<RoleRedirect />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="scan" element={<ScanPage />} />
+        <Route path="wash" element={<WashPage />} />
         <Route path="bins" element={<BinListPage />} />
         <Route path="bins/:id" element={<BinDetailPage />} />
         <Route path="customers" element={<CustomersPage />} />

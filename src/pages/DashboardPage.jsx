@@ -43,6 +43,7 @@ export default function DashboardPage() {
   const [bins, setBins] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [washedTodayLbs, setWashedTodayLbs] = useState(0)
 
   useEffect(() => {
     async function fetchBins() {
@@ -58,7 +59,21 @@ export default function DashboardPage() {
       }
       setLoading(false)
     }
+
+    async function fetchWashedToday() {
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      const { data } = await supabase
+        .from('wash_logs')
+        .select('weight_lbs')
+        .gte('created_at', todayStart.toISOString())
+      if (data) {
+        setWashedTodayLbs(data.reduce((s, r) => s + Number(r.weight_lbs), 0))
+      }
+    }
+
     fetchBins()
+    fetchWashedToday()
   }, [])
 
   if (loading) {
@@ -94,7 +109,7 @@ export default function DashboardPage() {
       {/* Plant Overview */}
       <div className="bg-white rounded-lg border border-gray-200 p-3">
         <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">Plant Overview</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
             <p className="text-4xl font-bold text-[#1B2541]">{receivedTotal} <span className="text-slate-500">Soiled Bins</span></p>
             <CustomerGrid customers={receivedBins} />
@@ -102,6 +117,9 @@ export default function DashboardPage() {
           <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
             <p className="text-4xl font-bold text-[#1B2541]">{inProcessTotal} <span className="text-slate-500">In Process</span></p>
             <CustomerGrid customers={inProcessBins} />
+          </div>
+          <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+            <p className="text-4xl font-bold text-[#1B2541]">{washedTodayLbs} <span className="text-slate-500">lbs Washed Today</span></p>
           </div>
         </div>
       </div>

@@ -142,6 +142,41 @@ CREATE TABLE route_progress (
 );
 
 -- ============================================
+-- WASHERS
+-- ============================================
+
+CREATE TABLE washers (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,          -- e.g. 'W1'
+  capacity   integer NOT NULL,       -- lbs
+  created_at timestamptz DEFAULT now()
+);
+
+-- ============================================
+-- WASH CYCLES
+-- ============================================
+
+CREATE TABLE wash_cycles (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,          -- e.g. 'Whites', 'Colors', 'Sanitize'
+  created_at timestamptz DEFAULT now()
+);
+
+-- ============================================
+-- WASH LOGS
+-- ============================================
+
+CREATE TABLE wash_logs (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  washer_id     uuid NOT NULL REFERENCES washers(id),
+  customer_id   uuid NOT NULL REFERENCES customers(id),
+  wash_cycle_id uuid NOT NULL REFERENCES wash_cycles(id),
+  weight_lbs    numeric NOT NULL,
+  washed_by     uuid REFERENCES auth.users(id),
+  created_at    timestamptz DEFAULT now()
+);
+
+-- ============================================
 -- INDEXES
 -- ============================================
 
@@ -172,6 +207,9 @@ CREATE INDEX idx_route_stops_route ON route_stops(route_id);
 
 -- Route progress by date
 CREATE INDEX idx_route_progress_date ON route_progress(date);
+
+-- Wash logs by date (for today's summary)
+CREATE INDEX idx_wash_logs_created_at ON wash_logs(created_at DESC);
 
 -- ============================================
 -- ROW LEVEL SECURITY POLICIES
@@ -307,6 +345,37 @@ CREATE POLICY "Drivers and owners can insert route progress"
   TO authenticated
   WITH CHECK (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('owner', 'driver'))
+  );
+
+-- Washers
+ALTER TABLE washers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read washers"
+  ON washers FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- Wash Cycles
+ALTER TABLE wash_cycles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read wash cycles"
+  ON wash_cycles FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- Wash Logs
+ALTER TABLE wash_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read wash logs"
+  ON wash_logs FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Non-drivers can insert wash logs"
+  ON wash_logs FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('owner', 'production'))
   );
 
 -- For status updates via scanning, we'll use a function (see below)
