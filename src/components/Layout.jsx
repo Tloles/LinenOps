@@ -1,6 +1,10 @@
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../context/AuthContext'
 
+function routesPath(role) {
+  return role === 'owner' ? '/routes' : '/routes/today'
+}
+
 function NavTab({ to, end, children }) {
   return (
     <NavLink
@@ -48,6 +52,7 @@ export default function Layout() {
         <NavTab to="/scan">Scan</NavTab>
         <NavTab to="/bins">Bins</NavTab>
         <NavTab to="/customers">Customers</NavTab>
+        <NavTab to={routesPath(role)}>Routes</NavTab>
       </nav>
 
       <main className="flex-1 p-2 sm:p-3 w-full">

@@ -8,6 +8,9 @@ import BinListPage from './pages/BinListPage'
 import BinDetailPage from './pages/BinDetailPage'
 import CustomersPage from './pages/CustomersPage'
 import CustomerDetailPage from './pages/CustomerDetailPage'
+import RoutesPage from './pages/RoutesPage'
+import TodayRoutePage from './pages/TodayRoutePage'
+import StopPage from './pages/StopPage'
 
 function ProtectedRoute({ children }) {
   const { session, loading } = useAuth()
@@ -34,6 +37,9 @@ export default function App() {
         <Route path="bins/:id" element={<BinDetailPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="customers/:id" element={<CustomerDetailPage />} />
+        <Route path="routes" element={<RoutesPage />} />
+        <Route path="routes/today" element={<TodayRoutePage />} />
+        <Route path="routes/today/:routeId/stops/:stopId" element={<StopPage />} />
       </Route>
     </Routes>
   )

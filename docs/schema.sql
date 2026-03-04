@@ -81,6 +81,67 @@ CREATE TABLE scan_events (
 );
 
 -- ============================================
+-- LOCATIONS (wellness sub-locations under a customer)
+-- ============================================
+
+CREATE TABLE locations (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id         uuid NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  name                text NOT NULL,
+  weekly_par          integer NOT NULL DEFAULT 0,
+  deliveries_per_week integer NOT NULL DEFAULT 1,
+  created_at          timestamptz DEFAULT now()
+);
+
+-- ============================================
+-- DELIVERY LOGS (wellness par-based deliveries)
+-- ============================================
+
+CREATE TABLE delivery_logs (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  location_id     uuid NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+  date            date NOT NULL DEFAULT CURRENT_DATE,
+  delivered_by    uuid REFERENCES auth.users(id),
+  shelf_count     integer NOT NULL,
+  delivery_amount integer NOT NULL,
+  created_at      timestamptz DEFAULT now()
+);
+
+-- ============================================
+-- ROUTES
+-- ============================================
+
+CREATE TABLE routes (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,
+  schedule   integer[] NOT NULL DEFAULT '{}',   -- days 0-6 (Sun-Sat)
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE route_stops (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  route_id    uuid NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+  customer_id uuid REFERENCES customers(id),
+  location_id uuid REFERENCES locations(id),
+  stop_order  integer NOT NULL DEFAULT 0,
+  created_at  timestamptz DEFAULT now(),
+  CONSTRAINT stop_has_customer_or_location CHECK (
+    (customer_id IS NOT NULL AND location_id IS NULL) OR
+    (customer_id IS NULL AND location_id IS NOT NULL)
+  )
+);
+
+CREATE TABLE route_progress (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  route_id     uuid NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+  stop_id      uuid NOT NULL REFERENCES route_stops(id) ON DELETE CASCADE,
+  date         date NOT NULL DEFAULT CURRENT_DATE,
+  completed_by uuid REFERENCES auth.users(id),
+  completed_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (stop_id, date)
+);
+
+-- ============================================
 -- INDEXES
 -- ============================================
 
@@ -98,6 +159,19 @@ CREATE INDEX idx_scan_events_bin ON scan_events(bin_id);
 
 -- Fast lookup: recent scans (for activity feed)
 CREATE INDEX idx_scan_events_scanned_at ON scan_events(scanned_at DESC);
+
+-- Locations by customer
+CREATE INDEX idx_locations_customer ON locations(customer_id);
+
+-- Delivery logs by location and date
+CREATE INDEX idx_delivery_logs_location ON delivery_logs(location_id);
+CREATE INDEX idx_delivery_logs_date ON delivery_logs(date);
+
+-- Route stops by route
+CREATE INDEX idx_route_stops_route ON route_stops(route_id);
+
+-- Route progress by date
+CREATE INDEX idx_route_progress_date ON route_progress(date);
 
 -- ============================================
 -- ROW LEVEL SECURITY POLICIES
@@ -158,6 +232,81 @@ CREATE POLICY "Owners can update bins"
   TO authenticated
   USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'owner')
+  );
+
+-- Locations
+ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read locations"
+  ON locations FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Owners can manage locations"
+  ON locations FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'owner')
+  );
+
+-- Delivery Logs
+ALTER TABLE delivery_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read delivery logs"
+  ON delivery_logs FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Drivers and owners can insert delivery logs"
+  ON delivery_logs FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('owner', 'driver'))
+  );
+
+-- Routes
+ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read routes"
+  ON routes FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Owners can manage routes"
+  ON routes FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'owner')
+  );
+
+-- Route Stops
+ALTER TABLE route_stops ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read route stops"
+  ON route_stops FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Owners can manage route stops"
+  ON route_stops FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'owner')
+  );
+
+-- Route Progress
+ALTER TABLE route_progress ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read route progress"
+  ON route_progress FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Drivers and owners can insert route progress"
+  ON route_progress FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('owner', 'driver'))
   );
 
 -- For status updates via scanning, we'll use a function (see below)

@@ -39,3 +39,9 @@ export const CUSTOMER_TYPES = [
   { value: 'massage_envy', label: 'Massage Envy' },
   { value: 'hand_and_stone', label: 'Hand & Stone' },
 ]
+
+export const WELLNESS_TYPES = ['massage_envy', 'hand_and_stone']
+
+export function isWellnessType(type) {
+  return WELLNESS_TYPES.includes(type)
+}
