@@ -38,15 +38,20 @@ export default function WashPage() {
   }
 
   async function fetchTodayLogs() {
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
 
-    const { data } = await supabase
+    console.log('[WashPage] fetchTodayLogs range:', todayStart, '→', todayEnd)
+
+    const { data, error } = await supabase
       .from('wash_logs')
       .select('id, weight_lbs, washer_id, customer_id, customers(id, name, logo_url), washers(id, name)')
-      .gte('created_at', todayStart.toISOString())
+      .gte('created_at', todayStart)
+      .lt('created_at', todayEnd)
       .order('created_at', { ascending: false })
 
+    console.log('[WashPage] wash_logs returned:', data?.length, 'rows', error ? `error: ${error.message}` : '')
     if (data) setTodayLogs(data)
   }
 
@@ -150,8 +155,7 @@ export default function WashPage() {
                     : 'border-gray-200'
                 }`}
               >
-                <CustomerLogo url={c.logo_url} name={c.name} size={150} />
-                <span className="text-sm font-medium text-gray-700 mt-1 text-center">{c.name}</span>
+                <CustomerLogo url={c.logo_url} name={c.name} size={175} />
               </button>
             ))}
           </div>
@@ -225,7 +229,6 @@ export default function WashPage() {
               {customerSummary.map((c) => (
                 <div key={c.id} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200 flex flex-col items-center">
                   <CustomerLogo url={c.logo_url} name={c.name} size={80} />
-                  <span className="text-sm font-medium text-gray-700 mt-1">{c.name}</span>
                   <span className="text-lg font-bold text-[#1B2541]">{c.loads} loads &middot; {c.lbs} lbs</span>
                 </div>
               ))}
