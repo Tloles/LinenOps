@@ -610,14 +610,19 @@ export default function ProductionFormPage() {
         {bin && customer && (
           <div className="space-y-4">
 
-            {/* Header: White Sail logo + title, then 3-col row */}
+            {/* Header row 1: WS logo | Title | Customer logo */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="text-center mb-2">
-                <img src={WHITE_SAIL_LOGO} alt="White Sail" style={{ maxHeight: 100, maxWidth: 250 }} className="mx-auto" />
+              <div className="grid grid-cols-3 items-center gap-2 mb-3">
+                <div className="flex justify-start">
+                  <img src={WHITE_SAIL_LOGO} alt="White Sail" style={{ height: 60 }} />
+                </div>
+                <h3 className="text-[28px] font-bold text-gray-900 text-center">Linen Cart Manifest</h3>
+                <div className="flex justify-end">
+                  <CustomerLogo url={customer.logo_url} name={customer.name} size={80} />
+                </div>
               </div>
-              <h3 className="text-[28px] font-bold text-gray-900 text-center mb-3">Linen Cart Manifest</h3>
+              {/* Header row 2: CLIENT+DATE | (empty) | CART */}
               <div className="grid grid-cols-3 items-center gap-2">
-                {/* Left: CLIENT + DATE */}
                 <div className="space-y-1">
                   <p className="text-lg">
                     <span className="font-bold">CLIENT:</span>{' '}
@@ -628,11 +633,7 @@ export default function ProductionFormPage() {
                     <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{todayFormatted()}</span>
                   </p>
                 </div>
-                {/* Center: Customer logo */}
-                <div className="flex justify-center">
-                  <CustomerLogo url={customer.logo_url} name={customer.name} size={150} />
-                </div>
-                {/* Right: CART barcode */}
+                <div />
                 <div className="text-right">
                   <p className="text-lg">
                     <span className="font-bold">CART:</span>{' '}
@@ -866,17 +867,23 @@ export default function ProductionFormPage() {
       {printData && (
         <div className="print-only p-4">
           <div className="max-w-2xl mx-auto">
-            {/* White Sail logo */}
-            <div className="text-center mb-1">
-              <img src={WHITE_SAIL_LOGO} alt="White Sail" className="mx-auto" style={{ maxHeight: 100, maxWidth: 250 }} />
+            {/* Row 1: WS logo | Title | Customer logo */}
+            <div className="mb-2" style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <img src={WHITE_SAIL_LOGO} alt="White Sail" style={{ height: 50 }} />
+              </div>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <h1 className="font-bold" style={{ fontSize: '24px', margin: 0 }}>Linen Cart Manifest</h1>
+              </div>
+              <div style={{ flex: 1, textAlign: 'right' }}>
+                {printData.customerLogoUrl && (
+                  <img src={printData.customerLogoUrl} alt={printData.customerName} style={{ height: 50, display: 'inline-block' }} />
+                )}
+              </div>
             </div>
 
-            {/* Title */}
-            <h1 className="font-bold text-center mb-2" style={{ fontSize: '24px' }}>Linen Cart Manifest</h1>
-
-            {/* 3-column header: CLIENT+DATE | Customer logo | CART */}
+            {/* Row 2: CLIENT+DATE | (empty) | CART */}
             <div className="mb-2" style={{ display: 'flex', alignItems: 'center', fontSize: '16px' }}>
-              {/* Left: CLIENT + DATE */}
               <div style={{ flex: 1 }}>
                 <p className="mb-0.5">
                   <span className="font-bold">CLIENT:</span>{' '}
@@ -887,13 +894,7 @@ export default function ProductionFormPage() {
                   <span className="underline underline-offset-4">{printData.date}</span>
                 </p>
               </div>
-              {/* Center: Customer logo */}
-              {printData.customerLogoUrl && (
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <img src={printData.customerLogoUrl} alt={printData.customerName} className="mx-auto" style={{ maxHeight: 70, maxWidth: 180 }} />
-                </div>
-              )}
-              {/* Right: CART */}
+              <div style={{ flex: 1 }} />
               <div style={{ flex: 1, textAlign: 'right' }}>
                 <p>
                   <span className="font-bold">CART:</span>{' '}
