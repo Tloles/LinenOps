@@ -234,9 +234,9 @@ export default function WashPage() {
           <p className="text-gray-400 text-sm">No washes in the last 24 hours.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed' }}>
+            <table className="w-full text-lg border-collapse" style={{ tableLayout: 'fixed' }}>
               <thead>
-                <tr className="bg-slate-100 text-left text-xs font-bold text-[#1B2541] uppercase">
+                <tr className="bg-slate-100 text-left text-base font-bold text-[#1B2541] uppercase">
                   <th className="py-2 px-1 border border-slate-200">Time</th>
                   <th className="py-2 px-1 border border-slate-200">W</th>
                   <th className="py-2 px-1 border border-slate-200">Customer</th>
@@ -250,7 +250,7 @@ export default function WashPage() {
                   <tr key={log.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     {editingId === log.id ? (
                       <>
-                        <td className="py-1 px-1 border border-slate-200 text-xs text-gray-500">{formatTime(log.washed_at)}</td>
+                        <td className="py-1 px-1 border border-slate-200 text-gray-500">{formatTime(log.washed_at)}</td>
                         <td className="py-1 px-1 border border-slate-200">
                           <select
                             value={editValues.washer_id}
@@ -293,16 +293,16 @@ export default function WashPage() {
                       </>
                     ) : (
                       <>
-                        <td className="py-1 px-1 border border-slate-200 text-xs text-gray-500 whitespace-nowrap">{formatTime(log.washed_at)}</td>
-                        <td className="py-1 px-1 border border-slate-200 text-xs font-medium">{log.washers?.name?.replace(/\D/g, '') ? 'W' + log.washers.name.replace(/\D/g, '') : log.washers?.name}</td>
+                        <td className="py-1 px-1 border border-slate-200 text-gray-500 whitespace-nowrap">{formatTime(log.washed_at)}</td>
+                        <td className="py-1 px-1 border border-slate-200 font-medium">{log.washers?.name?.replace(/\D/g, '') ? 'W' + log.washers.name.replace(/\D/g, '') : log.washers?.name}</td>
                         <td className="py-1 px-1 border border-slate-200">
                           <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={120} />
                         </td>
-                        <td className="py-1 px-1 border border-slate-200 text-xs">{log.wash_cycles?.name}</td>
-                        <td className="py-1 px-1 border border-slate-200 text-right text-xs font-medium">{log.weight_lbs}</td>
+                        <td className="py-1 px-1 border border-slate-200">{log.wash_cycles?.name}</td>
+                        <td className="py-1 px-1 border border-slate-200 text-right font-bold">{log.weight_lbs}</td>
                         <td className="py-1 px-1 border border-slate-200 text-right whitespace-nowrap">
-                          <button onClick={() => startEdit(log)} className="text-xs font-medium text-blue-600 hover:text-blue-800 mr-1">Edit</button>
-                          <button onClick={() => deleteLog(log.id)} className="text-xs font-medium text-rose-500 hover:text-rose-700">Del</button>
+                          <button onClick={() => startEdit(log)} className="font-medium text-blue-600 hover:text-blue-800 mr-1">Edit</button>
+                          <button onClick={() => deleteLog(log.id)} className="font-medium text-rose-500 hover:text-rose-700">Del</button>
                         </td>
                       </>
                     )}
