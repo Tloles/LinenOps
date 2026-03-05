@@ -26,6 +26,7 @@ function RoleRedirect() {
   const { role, loading } = useAuth()
   if (loading) return null
   if (role === 'driver') return <Navigate to="/routes/today" replace />
+  if (role === 'production') return <Navigate to="/scan" replace />
   return <Navigate to="/dashboard" replace />
 }
 

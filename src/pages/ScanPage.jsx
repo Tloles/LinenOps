@@ -246,7 +246,7 @@ export default function ScanPage() {
   const suggestedStatus = bin ? NEXT_STATUS[bin.current_status] : null
 
   // Summary data
-  const showLocation = role === 'driver' || role === 'owner'
+  const showLocation = role === 'driver' || role === 'owner' || role === 'production'
   const showStatus = role === 'production' || role === 'owner'
 
   const atPlantBins = showLocation ? groupByCustomer(summaryBins, ['clean_staged', 'received_at_plant', 'in_process']) : []
@@ -434,7 +434,25 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* Role-based summary sections */}
+      {/* Role-based summary sections — By Status first, then By Location */}
+      {showStatus && (
+        <div className="bg-white rounded-lg border border-gray-200 p-3">
+          <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Status</h3>
+          {byStatus.length === 0 ? (
+            <p className="text-gray-400 text-sm">No active bins.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {byStatus.map(({ status, total, customers }) => (
+                <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+                  <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500 capitalize">{dashLabel(status)}</span></p>
+                  <CustomerGrid customers={customers} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {showLocation && (
         <div className="bg-white rounded-lg border border-gray-200 p-3">
           <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Location</h3>
@@ -456,24 +474,6 @@ export default function ScanPage() {
               )
             })}
           </div>
-        </div>
-      )}
-
-      {showStatus && (
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Status</h3>
-          {byStatus.length === 0 ? (
-            <p className="text-gray-400 text-sm">No active bins.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {byStatus.map(({ status, total, customers }) => (
-                <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-                  <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500 capitalize">{dashLabel(status)}</span></p>
-                  <CustomerGrid customers={customers} />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>

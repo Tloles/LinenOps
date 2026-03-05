@@ -48,7 +48,7 @@ export default function Layout() {
       </header>
 
       <nav className="bg-white border-b border-gray-200 px-4 flex gap-1 overflow-x-auto">
-        {role !== 'driver' && <NavTab to="/dashboard">Dashboard</NavTab>}
+        {role === 'owner' && <NavTab to="/dashboard">Dashboard</NavTab>}
         <NavTab to="/scan">Scan</NavTab>
         {role !== 'driver' && <NavTab to="/bins">Bins</NavTab>}
         {role !== 'driver' && <NavTab to="/wash">Wash Form</NavTab>}
