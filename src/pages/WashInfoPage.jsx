@@ -156,13 +156,13 @@ export default function WashInfoPage() {
       <h2 className="text-lg font-semibold text-gray-900">Wash Info</h2>
 
       {/* Washer Utilization (today only) — always visible at top */}
-      <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
-        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider">Washer Utilization (Today)</h3>
-        <div className="grid grid-cols-6 gap-0.5 overflow-x-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 px-0 py-2 space-y-2 overflow-x-hidden">
+        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider px-3">Washer Utilization (Today)</h3>
+        <div className="grid grid-cols-6 gap-[4px] px-[4px]">
           {washerUtil.map(w => (
-            <div key={w.id} className={`rounded-md px-0.5 py-1 border text-center min-w-0 ${utilizationColor(w.pct)}`}>
+            <div key={w.id} className={`rounded-md px-0 py-1 border text-center min-w-0 ${utilizationColor(w.pct)}`}>
               <div className="flex justify-center">
-                <WashingMachine className={`w-full h-auto max-w-full ${utilizationIconColor(w.pct)}`} />
+                <WashingMachine size={100} className={utilizationIconColor(w.pct)} />
               </div>
               <p className="text-lg font-bold leading-tight mt-0.5">{w.name}</p>
               <p className="text-[15px] font-medium leading-tight">{w.loads}L &middot; {w.lbs}lb</p>
