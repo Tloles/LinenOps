@@ -411,14 +411,14 @@ export default function ScanPage() {
               <p className="text-sm font-medium text-gray-700">Which truck?</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => handleTruckSizeSelect('16')}
+                  onClick={() => handleTruckSizeSelect('26')}
                   disabled={updating}
                   className="w-full min-h-[72px] text-xl font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700"
                 >
                   {updating ? 'Updating...' : "16'"}
                 </button>
                 <button
-                  onClick={() => handleTruckSizeSelect('26')}
+                  onClick={() => handleTruckSizeSelect('16')}
                   disabled={updating}
                   className="w-full min-h-[72px] text-xl font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700"
                 >
