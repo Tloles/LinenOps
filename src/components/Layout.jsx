@@ -30,7 +30,7 @@ export default function Layout() {
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="bg-[#1B2541] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src="/favicon.png" alt="White Sail" className="h-8 w-auto" />
+          <img src="/header-logo.png" alt="White Sail" className="h-[40px] w-auto" />
           <h1 className="text-xl font-bold text-white tracking-wide">White Sail</h1>
           <span className="text-sm text-slate-400 font-medium hidden sm:inline">LinenOps</span>
         </div>
