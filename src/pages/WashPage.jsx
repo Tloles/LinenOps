@@ -21,11 +21,13 @@ export default function WashPage() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState(null)
 
-  const [todayLogs, setTodayLogs] = useState([])
+  const [recentLogs, setRecentLogs] = useState([])
+  const [editingId, setEditingId] = useState(null)
+  const [editValues, setEditValues] = useState({})
 
   useEffect(() => {
     fetchReferenceData()
-    fetchTodayLogs()
+    fetchRecentLogs()
   }, [])
 
   async function fetchReferenceData() {
@@ -39,22 +41,16 @@ export default function WashPage() {
     if (cy.data) setCycles(cy.data)
   }
 
-  async function fetchTodayLogs() {
-    const now = new Date()
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString()
+  async function fetchRecentLogs() {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
-    console.log('[WashPage] fetchTodayLogs range:', todayStart, '→', todayEnd)
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('wash_logs')
-      .select('id, weight_lbs, washer_id, customer_id, customers(id, name, logo_url), washers(id, name)')
-      .gte('washed_at', todayStart)
-      .lt('washed_at', todayEnd)
+      .select('id, weight_lbs, washer_id, customer_id, wash_cycle_id, washed_at, customers(id, name, logo_url), washers(id, name), wash_cycles(id, name)')
+      .gte('washed_at', since)
       .order('washed_at', { ascending: false })
 
-    console.log('[WashPage] wash_logs returned:', data?.length, 'rows', error ? `error: ${error.message}` : '')
-    if (data) setTodayLogs(data)
+    if (data) setRecentLogs(data)
   }
 
   const canSubmit = selectedWasher && selectedCustomer && selectedCycle && weight && !saving
@@ -78,46 +74,63 @@ export default function WashPage() {
     setSelectedCustomer(null)
     setWeight('')
     setSaving(false)
-    fetchTodayLogs()
+    fetchRecentLogs()
     setTimeout(() => setSuccess(false), 2000)
   }
 
-  // Today's summary computations
-  const totalLoads = todayLogs.length
-  const totalLbs = todayLogs.reduce((s, l) => s + Number(l.weight_lbs), 0)
-
-  const byCustomer = {}
-  for (const log of todayLogs) {
-    const cid = log.customer_id
-    if (!byCustomer[cid]) {
-      byCustomer[cid] = {
-        id: cid,
-        name: log.customers?.name || 'Unknown',
-        logo_url: log.customers?.logo_url,
-        loads: 0,
-        lbs: 0,
-      }
-    }
-    byCustomer[cid].loads++
-    byCustomer[cid].lbs += Number(log.weight_lbs)
+  function startEdit(log) {
+    setEditingId(log.id)
+    setEditValues({
+      washer_id: log.washer_id,
+      customer_id: log.customer_id,
+      wash_cycle_id: log.wash_cycle_id,
+      weight_lbs: String(log.weight_lbs),
+    })
   }
-  const customerSummary = Object.values(byCustomer).sort((a, b) => a.name.localeCompare(b.name))
 
-  const byWasher = {}
-  for (const log of todayLogs) {
-    const wid = log.washer_id
-    if (!byWasher[wid]) {
-      byWasher[wid] = {
-        id: wid,
-        name: log.washers?.name || 'Unknown',
-        loads: 0,
-        lbs: 0,
-      }
-    }
-    byWasher[wid].loads++
-    byWasher[wid].lbs += Number(log.weight_lbs)
+  function cancelEdit() {
+    setEditingId(null)
+    setEditValues({})
   }
-  const washerSummary = Object.values(byWasher).sort((a, b) => a.name.localeCompare(b.name))
+
+  async function saveEdit(id) {
+    const { error: updateError } = await supabase
+      .from('wash_logs')
+      .update({
+        washer_id: editValues.washer_id,
+        customer_id: editValues.customer_id,
+        wash_cycle_id: editValues.wash_cycle_id,
+        weight_lbs: parseFloat(editValues.weight_lbs),
+      })
+      .eq('id', id)
+
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+    setEditingId(null)
+    setEditValues({})
+    fetchRecentLogs()
+  }
+
+  async function deleteLog(id) {
+    const { error: deleteError } = await supabase
+      .from('wash_logs')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) {
+      setError(deleteError.message)
+      return
+    }
+    fetchRecentLogs()
+  }
+
+  function formatTime(ts) {
+    if (!ts) return ''
+    const d = new Date(ts)
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  }
 
   return (
     <div className="space-y-4">
@@ -214,44 +227,89 @@ export default function WashPage() {
         </button>
       </div>
 
-      {/* Today's Wash Summary */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider">Today's Wash Summary</h3>
-
-        {/* Totals Bar */}
-        <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-          <p className="text-2xl font-bold text-[#1B2541]">
-            Today: {totalLoads} load{totalLoads !== 1 ? 's' : ''} &middot; {totalLbs} lbs
-          </p>
-        </div>
-
-        {/* By Customer */}
-        {customerSummary.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">By Customer</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {customerSummary.map((c) => (
-                <div key={c.id} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200 flex flex-col items-center">
-                  <CustomerLogo url={c.logo_url} name={c.name} size={80} />
-                  <span className="text-lg font-bold text-[#1B2541]">{c.loads} loads &middot; {c.lbs} lbs</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* By Washer */}
-        {washerSummary.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">By Washer</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {washerSummary.map((w) => (
-                <div key={w.id} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200 text-center">
-                  <span className="text-sm font-semibold text-gray-700">{w.name}</span>
-                  <p className="text-lg font-bold text-[#1B2541]">{w.loads} loads &middot; {w.lbs} lbs</p>
-                </div>
-              ))}
-            </div>
+      {/* Recent Wash Log (last 24h) */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-2">
+        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider">Recent Washes</h3>
+        {recentLogs.length === 0 ? (
+          <p className="text-gray-400 text-sm">No washes in the last 24 hours.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-left text-xs font-semibold text-gray-500 uppercase">
+                  <th className="py-2 pr-2">Time</th>
+                  <th className="py-2 pr-2">Washer</th>
+                  <th className="py-2 pr-2">Customer</th>
+                  <th className="py-2 pr-2">Cycle</th>
+                  <th className="py-2 pr-2 text-right">lbs</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {recentLogs.map(log => (
+                  <tr key={log.id} className="border-b border-gray-100">
+                    {editingId === log.id ? (
+                      <>
+                        <td className="py-2 pr-2 text-xs text-gray-500">{formatTime(log.washed_at)}</td>
+                        <td className="py-2 pr-2">
+                          <select
+                            value={editValues.washer_id}
+                            onChange={(e) => setEditValues({ ...editValues, washer_id: e.target.value })}
+                            className="border border-gray-300 rounded px-1 py-1 text-xs w-full"
+                          >
+                            {washers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 pr-2">
+                          <select
+                            value={editValues.customer_id}
+                            onChange={(e) => setEditValues({ ...editValues, customer_id: e.target.value })}
+                            className="border border-gray-300 rounded px-1 py-1 text-xs w-full"
+                          >
+                            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 pr-2">
+                          <select
+                            value={editValues.wash_cycle_id}
+                            onChange={(e) => setEditValues({ ...editValues, wash_cycle_id: e.target.value })}
+                            className="border border-gray-300 rounded px-1 py-1 text-xs w-full"
+                          >
+                            {cycles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input
+                            type="number"
+                            value={editValues.weight_lbs}
+                            onChange={(e) => setEditValues({ ...editValues, weight_lbs: e.target.value })}
+                            className="border border-gray-300 rounded px-1 py-1 text-xs w-16 text-right"
+                          />
+                        </td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <button onClick={() => saveEdit(log.id)} className="text-xs font-medium text-green-600 hover:text-green-800 mr-2">Save</button>
+                          <button onClick={cancelEdit} className="text-xs font-medium text-gray-400 hover:text-gray-600">Cancel</button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="py-2 pr-2 text-xs text-gray-500">{formatTime(log.washed_at)}</td>
+                        <td className="py-2 pr-2 font-medium">{log.washers?.name}</td>
+                        <td className="py-2 pr-2">
+                          <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={40} />
+                        </td>
+                        <td className="py-2 pr-2">{log.wash_cycles?.name}</td>
+                        <td className="py-2 pr-2 text-right font-medium">{log.weight_lbs}</td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <button onClick={() => startEdit(log)} className="text-xs font-medium text-blue-600 hover:text-blue-800 mr-2">Edit</button>
+                          <button onClick={() => deleteLog(log.id)} className="text-xs font-medium text-rose-500 hover:text-rose-700">Delete</button>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
