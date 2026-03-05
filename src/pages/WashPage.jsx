@@ -237,12 +237,12 @@ export default function WashPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 text-left text-xs font-semibold text-gray-500 uppercase">
-                  <th className="py-2 pr-1 w-12">Time</th>
-                  <th className="py-2 pr-1 w-14">Washer</th>
-                  <th className="py-2 pr-1">Customer</th>
-                  <th className="py-2 pr-1 w-16">Cycle</th>
-                  <th className="py-2 pr-1 w-12 text-right">lbs</th>
-                  <th className="py-2 w-20" />
+                  <th className="py-2 pr-1 w-10">Time</th>
+                  <th className="py-2 pr-1 w-8">W</th>
+                  <th className="py-2 px-1">Customer</th>
+                  <th className="py-2 pl-1 pr-1 w-14">Cycle</th>
+                  <th className="py-2 pr-1 w-10 text-right">lbs</th>
+                  <th className="py-2 w-16" />
                 </tr>
               </thead>
               <tbody>
@@ -293,13 +293,13 @@ export default function WashPage() {
                       </>
                     ) : (
                       <>
-                        <td className="py-2 pr-2 text-xs text-gray-500">{formatTime(log.washed_at)}</td>
-                        <td className="py-2 pr-2 font-medium">{log.washers?.name}</td>
-                        <td className="py-2 pr-2">
-                          <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={100} />
+                        <td className="py-1 pr-1 text-xs text-gray-500 whitespace-nowrap">{formatTime(log.washed_at)}</td>
+                        <td className="py-1 pr-1 text-xs font-medium">{log.washers?.name?.replace(/\D/g, '') ? 'W' + log.washers.name.replace(/\D/g, '') : log.washers?.name}</td>
+                        <td className="py-1 px-1">
+                          <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={120} />
                         </td>
-                        <td className="py-2 pr-2">{log.wash_cycles?.name}</td>
-                        <td className="py-2 pr-2 text-right font-medium">{log.weight_lbs}</td>
+                        <td className="py-1 pl-1 pr-1 text-xs">{log.wash_cycles?.name}</td>
+                        <td className="py-1 pr-1 text-right text-xs font-medium">{log.weight_lbs}</td>
                         <td className="py-2 text-right whitespace-nowrap">
                           <button onClick={() => startEdit(log)} className="text-xs font-medium text-blue-600 hover:text-blue-800 mr-2">Edit</button>
                           <button onClick={() => deleteLog(log.id)} className="text-xs font-medium text-rose-500 hover:text-rose-700">Delete</button>
