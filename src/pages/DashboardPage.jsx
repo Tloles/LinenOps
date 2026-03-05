@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { dashLabel, groupByCustomer, groupBinsByCustomer, groupByCustomerWithSize } from '../lib/binUtils'
+import { dashLabel, groupByCustomer, groupBinsByCustomer } from '../lib/binUtils'
 import CustomerGrid from '../components/CustomerGrid'
 
 export default function DashboardPage() {
@@ -98,14 +98,18 @@ export default function DashboardPage() {
     return { status, total, customers }
   })
 
-  // Truck Status — loaded & picked_up_soiled, with size breakdown
-  const TRUCK_STATUSES = ['loaded', 'picked_up_soiled']
-  const truckStatus = TRUCK_STATUSES.map((status) => {
-    const customers = groupByCustomerWithSize(bins, [status])
+  // On Truck — 4 fixed windows by size + status
+  const TRUCK_WINDOWS = [
+    { label: "16' Clean",  status: 'loaded',           size: '16' },
+    { label: "16' Soiled", status: 'picked_up_soiled', size: '16' },
+    { label: "26' Clean",  status: 'loaded',           size: '26' },
+    { label: "26' Soiled", status: 'picked_up_soiled', size: '26' },
+  ]
+  const truckWindows = TRUCK_WINDOWS.map(({ label, status, size }) => {
+    const filtered = bins.filter(b => b.current_status === status && b.size === size)
+    const customers = groupBinsByCustomer(filtered)
     const total = customers.reduce((s, c) => s + c.count, 0)
-    const total16 = customers.reduce((s, c) => s + c.size16, 0)
-    const total26 = customers.reduce((s, c) => s + c.size26, 0)
-    return { status, total, total16, total26, customers }
+    return { label, total, customers }
   })
 
   return (
@@ -173,12 +177,9 @@ export default function DashboardPage() {
       <div className="bg-white rounded-lg border border-gray-200 p-3">
         <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">On Truck</h3>
         <div className="grid grid-cols-2 gap-3">
-          {truckStatus.map(({ status, total, total16, total26, customers }) => (
-            <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-              <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{dashLabel(status)}</span></p>
-              <p className="text-sm font-medium text-gray-500 mt-0.5">
-                16&prime;: {total16} &nbsp;|&nbsp; 26&prime;: {total26}
-              </p>
+          {truckWindows.map(({ label, total, customers }) => (
+            <div key={label} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+              <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{label}</span></p>
               <CustomerGrid customers={customers} />
             </div>
           ))}
