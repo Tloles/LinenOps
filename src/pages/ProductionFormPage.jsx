@@ -58,6 +58,10 @@ export default function ProductionFormPage() {
   // Print data snapshot (frozen on submit for print)
   const [printData, setPrintData] = useState(null)
 
+  // Recent logs
+  const [recentLogs, setRecentLogs] = useState([])
+  const [reprinting, setReprinting] = useState(false)
+
   const linenWeight = useMemo(() => {
     const tw = parseFloat(totalWeight)
     const cw = parseFloat(cartWeight)
@@ -79,6 +83,76 @@ export default function ProductionFormPage() {
     }
     fetchSkus()
   }, [])
+
+  // Fetch recent production logs (last 24h)
+  const fetchRecentLogs = useCallback(async () => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { data } = await supabase
+      .from('production_logs')
+      .select('id, cart_number, total_carts, total_weight, cart_weight, linen_weight, customer_id, created_at, customers(id, name, type, logo_url)')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+    if (data) setRecentLogs(data)
+  }, [])
+
+  useEffect(() => {
+    fetchRecentLogs()
+  }, [fetchRecentLogs])
+
+  // Reprint a past log
+  async function handleReprint(log) {
+    setReprinting(true)
+    try {
+      const custType = log.customers?.type
+      const isHotel = custType === 'hotel' || custType === 'limited_service' || custType === 'specialty'
+
+      if (isHotel && hotelSkus.length > 0) {
+        // Fetch line items for this log
+        const { data: items } = await supabase
+          .from('production_log_items')
+          .select('hotel_sku_id, quantity')
+          .eq('production_log_id', log.id)
+
+        const qtyMap = {}
+        if (items) {
+          for (const item of items) {
+            qtyMap[item.hotel_sku_id] = item.quantity
+          }
+        }
+
+        const printPairs = {}
+        for (const cat of CATEGORY_ORDER) {
+          const catSkus = hotelSkus.filter(s => s.category === cat)
+          const withQty = catSkus.map(s => ({ ...s, quantity: qtyMap[s.id] || 0 }))
+          printPairs[cat] = chunkPairs(withQty)
+        }
+
+        setPrintData({
+          customerName: log.customers?.name || '',
+          customerLogoUrl: log.customers?.logo_url,
+          cartNumber: log.cart_number,
+          totalCarts: log.total_carts,
+          totalWeight: log.total_weight || 0,
+          cartWeight: log.cart_weight || 0,
+          linenWeight: log.linen_weight || 0,
+          skuPairs: printPairs,
+          date: new Date(log.created_at).toLocaleDateString(),
+        })
+
+        setTimeout(() => window.print(), 400)
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setReprinting(false)
+    }
+  }
+
+  function formatTime(ts) {
+    if (!ts) return ''
+    const d = new Date(ts)
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  }
 
   // Group SKUs by category, then chunk into pairs
   const skuPairsByCategory = useMemo(() => {
@@ -258,6 +332,7 @@ export default function ProductionFormPage() {
       }
 
       setSuccess('Production log saved!')
+      fetchRecentLogs()
 
       // Reset form for next cart
       setSkuQuantities({})
@@ -595,6 +670,53 @@ export default function ProductionFormPage() {
             </button>
           </div>
         )}
+
+        {/* ── Recent Production Logs (last 24h) ── */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-2">
+          <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider">Recent Production Logs</h3>
+          {recentLogs.length === 0 ? (
+            <p className="text-gray-400 text-sm">No production logs in the last 24 hours.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-lg border-collapse" style={{ tableLayout: 'fixed' }}>
+                <thead>
+                  <tr className="bg-slate-100 text-center text-base font-bold text-[#1B2541] uppercase">
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '20%' }}>Time</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '35%' }}>Customer</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '25%' }}>Cart</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '20%' }}>Linen lbs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentLogs.map((log, idx) => {
+                    const custType = log.customers?.type
+                    const canReprint = custType === 'hotel' || custType === 'limited_service' || custType === 'specialty'
+                    return (
+                      <tr
+                        key={log.id}
+                        onClick={() => canReprint && !reprinting && handleReprint(log)}
+                        className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} ${canReprint ? 'cursor-pointer hover:bg-blue-50 active:bg-blue-100' : ''}`}
+                      >
+                        <td className="py-1 px-1 border border-slate-200 text-center text-gray-500 whitespace-nowrap text-base">
+                          {formatTime(log.created_at)}
+                        </td>
+                        <td className="py-1 px-1 border border-slate-200 text-center">
+                          <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={80} />
+                        </td>
+                        <td className="py-1 px-1 border border-slate-200 text-center font-medium text-base">
+                          {log.cart_number} of {log.total_carts}
+                        </td>
+                        <td className="py-1 px-1 border border-slate-200 text-center font-bold text-base">
+                          {log.linen_weight}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ════════════ PRINT LAYOUT ════════════ */}
