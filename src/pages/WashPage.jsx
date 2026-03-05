@@ -2,14 +2,8 @@ import { useEffect, useState } from 'react'
 import { WashingMachine } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { washerIconSize } from '../lib/binUtils'
 import CustomerLogo from '../components/CustomerLogo'
-
-function washerIconSize(capacity) {
-  if (capacity >= 200) return 64
-  if (capacity >= 100) return 48
-  if (capacity >= 80) return 42
-  return 36
-}
 
 export default function WashPage() {
   const { user } = useAuth()
@@ -143,7 +137,7 @@ export default function WashPage() {
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                <WashingMachine size={washerIconSize(w.capacity)} />
+                <WashingMachine size={washerIconSize(w.name)} />
                 {w.name} ({w.capacity} lbs)
               </button>
             ))}

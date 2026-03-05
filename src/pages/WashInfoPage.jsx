@@ -1,14 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { WashingMachine } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { washerIconSize } from '../lib/binUtils'
 import CustomerLogo from '../components/CustomerLogo'
-
-function washerIconSize(capacity) {
-  if (capacity >= 200) return 150
-  if (capacity >= 100) return 112
-  if (capacity >= 80) return 98
-  return 84
-}
 
 function utilizationIconColor(pct) {
   if (pct >= 80) return 'text-rose-500'
@@ -169,7 +163,7 @@ export default function WashInfoPage() {
           {washerUtil.map(w => (
             <div key={w.id} className={`rounded-lg px-1.5 py-1.5 border text-center ${utilizationColor(w.pct)}`}>
               <div className="flex justify-center">
-                <WashingMachine size={washerIconSize(w.capacity)} className={utilizationIconColor(w.pct)} />
+                <WashingMachine size={washerIconSize(w.name)} className={utilizationIconColor(w.pct)} />
               </div>
               <p className="text-lg font-bold leading-tight mt-0.5">{w.name}</p>
               <p className="text-[15px] font-medium leading-tight">{w.loads}L &middot; {w.lbs}lb</p>
