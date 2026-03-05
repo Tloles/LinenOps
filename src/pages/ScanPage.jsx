@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { STATUS_COLORS, statusLabel, NEXT_STATUS, SCAN_STATUSES } from '../lib/constants'
+import { STATUS_COLORS, statusLabel, NEXT_STATUS } from '../lib/constants'
 import { dashLabel, groupByCustomer, groupBinsByCustomer } from '../lib/binUtils'
 import CustomerLogo from '../components/CustomerLogo'
 import CustomerGrid from '../components/CustomerGrid'
@@ -245,21 +245,35 @@ export default function ScanPage() {
 
   const suggestedStatus = bin ? NEXT_STATUS[bin.current_status] : null
 
-  // Summary data
-  const showLocation = role === 'driver' || role === 'owner' || role === 'production'
-  const showStatus = role === 'production' || role === 'owner'
+  // Plant Status — always show all four
+  const PLANT_STATUSES = ['received_at_plant', 'in_process', 'clean_staged', 'delivered']
+  const plantStatus = PLANT_STATUSES.map((status) => {
+    const customers = groupByCustomer(summaryBins, [status])
+    const total = customers.reduce((s, c) => s + c.count, 0)
+    return { status, total, customers }
+  })
 
-  const atPlantBins = showLocation ? groupByCustomer(summaryBins, ['clean_staged', 'received_at_plant', 'in_process']) : []
-  const atPlantTotal = atPlantBins.reduce((s, c) => s + c.count, 0)
-  const onTruckStatusBins = showLocation ? summaryBins.filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled') : []
-
-  const byStatus = showStatus
-    ? SCAN_STATUSES.map((status) => {
-        const customers = groupByCustomer(summaryBins, [status])
-        const total = customers.reduce((s, c) => s + c.count, 0)
-        return { status, total, customers }
-      }).filter((s) => s.total > 0)
-    : []
+  // On Truck — 4 fixed windows by truck size + status
+  const onTruckStatusBins = summaryBins.filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled')
+  const truckSizeMap = {}
+  for (const truck of trucks) {
+    if (truck.name.includes('16')) truckSizeMap[truck.id] = '16'
+    else if (truck.name.includes('26')) truckSizeMap[truck.id] = '26'
+  }
+  const TRUCK_WINDOWS = [
+    { label: "16' Clean",  status: 'loaded',           size: '16' },
+    { label: "16' Soiled", status: 'picked_up_soiled', size: '16' },
+    { label: "26' Clean",  status: 'loaded',           size: '26' },
+    { label: "26' Soiled", status: 'picked_up_soiled', size: '26' },
+  ]
+  const truckWindows = TRUCK_WINDOWS.map(({ label, status, size }) => {
+    const filtered = onTruckStatusBins.filter(b =>
+      b.current_status === status && truckSizeMap[binTruckMap[b.id]] === size
+    )
+    const customers = groupBinsByCustomer(filtered)
+    const total = customers.reduce((s, c) => s + c.count, 0)
+    return { label, total, customers }
+  })
 
   return (
     <div className="space-y-4">
@@ -434,48 +448,31 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* Role-based summary sections — By Status first, then By Location */}
-      {showStatus && (
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Status</h3>
-          {byStatus.length === 0 ? (
-            <p className="text-gray-400 text-sm">No active bins.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {byStatus.map(({ status, total, customers }) => (
-                <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-                  <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500 capitalize">{dashLabel(status)}</span></p>
-                  <CustomerGrid customers={customers} />
-                </div>
-              ))}
+      {/* Plant Status */}
+      <div className="bg-white rounded-lg border border-gray-200 p-3">
+        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">Plant Status</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {plantStatus.map(({ status, total, customers }) => (
+            <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+              <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{dashLabel(status)}</span></p>
+              <CustomerGrid customers={customers} />
             </div>
-          )}
+          ))}
         </div>
-      )}
+      </div>
 
-      {showLocation && (
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Location</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-              <p className="text-4xl font-bold text-[#1B2541]">{atPlantTotal} <span className="text-slate-500">At Plant</span></p>
-              <CustomerGrid customers={atPlantBins} />
+      {/* On Truck */}
+      <div className="bg-white rounded-lg border border-gray-200 p-3">
+        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">On Truck</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {truckWindows.map(({ label, total, customers }) => (
+            <div key={label} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+              <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{label}</span></p>
+              <CustomerGrid customers={customers} />
             </div>
-            {trucks.map(truck => {
-              const truckBins = onTruckStatusBins.filter(b => binTruckMap[b.id] === truck.id)
-              const customers = groupBinsByCustomer(truckBins)
-              const total = customers.reduce((s, c) => s + c.count, 0)
-              if (total === 0) return null
-              return (
-                <div key={truck.id} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-                  <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{truck.name}</span></p>
-                  <CustomerGrid customers={customers} />
-                </div>
-              )
-            })}
-          </div>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   )
 }
