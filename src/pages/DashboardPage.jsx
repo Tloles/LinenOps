@@ -9,11 +9,9 @@ export default function DashboardPage() {
   const [binTruckMap, setBinTruckMap] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [washedTodayLbs, setWashedTodayLbs] = useState(0)
-
   useEffect(() => {
     async function fetchData() {
-      const [binsRes, trucksRes, washRes] = await Promise.all([
+      const [binsRes, trucksRes] = await Promise.all([
         supabase
           .from('bins')
           .select('id, current_status, customer_id, size, customers(id, name, logo_url)')
@@ -22,10 +20,6 @@ export default function DashboardPage() {
           .from('trucks')
           .select('id, name')
           .order('name'),
-        supabase
-          .from('wash_logs')
-          .select('weight_lbs')
-          .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
       ])
 
       if (binsRes.error) {
@@ -37,9 +31,6 @@ export default function DashboardPage() {
       const binsData = binsRes.data || []
       setBins(binsData)
       setTrucks(trucksRes.data || [])
-      if (washRes.data) {
-        setWashedTodayLbs(washRes.data.reduce((s, r) => s + Number(r.weight_lbs), 0))
-      }
 
       // Build bin→truck map from latest loaded scan events
       const onTruckIds = binsData
@@ -78,17 +69,7 @@ export default function DashboardPage() {
     return <div className="p-4 bg-rose-50 text-rose-700 rounded-lg">{error}</div>
   }
 
-  // Plant Overview
-  const receivedBins = groupByCustomer(bins, ['received_at_plant'])
-  const receivedTotal = receivedBins.reduce((s, c) => s + c.count, 0)
-  const inProcessBins = groupByCustomer(bins, ['in_process'])
-  const inProcessTotal = inProcessBins.reduce((s, c) => s + c.count, 0)
-
-  // By Location (At Plant + per-truck)
-  const atPlantBins = groupByCustomer(bins, ['clean_staged', 'received_at_plant', 'in_process'])
-  const atPlantTotal = atPlantBins.reduce((s, c) => s + c.count, 0)
   const onTruckStatusBins = bins.filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled')
-  const lost = bins.filter((b) => b.current_status === 'lost').length
 
   // Plant Status — always show all four
   const PLANT_STATUSES = ['received_at_plant', 'in_process', 'clean_staged', 'delivered']
@@ -123,52 +104,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-2">
-      {/* Plant Overview */}
-      <div className="bg-white rounded-lg border border-gray-200 p-3">
-        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">Plant Overview</h3>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-            <p className="text-4xl font-bold text-[#1B2541]">{receivedTotal} <span className="text-slate-500">Soiled Bins</span></p>
-            <CustomerGrid customers={receivedBins} />
-          </div>
-          <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-            <p className="text-4xl font-bold text-[#1B2541]">{inProcessTotal} <span className="text-slate-500">In Process</span></p>
-            <CustomerGrid customers={inProcessBins} />
-          </div>
-          <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-            <p className="text-4xl font-bold text-[#1B2541]">{washedTodayLbs} <span className="text-slate-500">lbs Washed Today</span></p>
-          </div>
-        </div>
-      </div>
-
-      {/* By Location */}
-      <div className="bg-white rounded-lg border border-gray-200 p-3">
-        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Location</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-            <p className="text-4xl font-bold text-[#1B2541]">{atPlantTotal} <span className="text-slate-500">At Plant</span></p>
-            <CustomerGrid customers={atPlantBins} />
-          </div>
-          {trucks.map(truck => {
-            const truckBins = onTruckStatusBins.filter(b => binTruckMap[b.id] === truck.id)
-            const customers = groupBinsByCustomer(truckBins)
-            const total = customers.reduce((s, c) => s + c.count, 0)
-            if (total === 0) return null
-            return (
-              <div key={truck.id} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-                <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{truck.name}</span></p>
-                <CustomerGrid customers={customers} />
-              </div>
-            )
-          })}
-        </div>
-        {lost > 0 && (
-          <div className="mt-2 text-center text-sm font-medium text-rose-600">
-            {lost} bin{lost !== 1 ? 's' : ''} marked lost
-          </div>
-        )}
-      </div>
-
       {/* Plant Status */}
       <div className="bg-white rounded-lg border border-gray-200 p-3">
         <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">Plant Status</h3>
