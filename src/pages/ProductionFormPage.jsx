@@ -90,11 +90,13 @@ export default function ProductionFormPage() {
   // Fetch recent production logs (last 24h)
   const fetchRecentLogs = useCallback(async () => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-    const { data } = await supabase
+    console.log('[fetchRecentLogs] since:', since)
+    const { data, error: fetchErr } = await supabase
       .from('production_logs')
-      .select('id, cart_number, total_carts, total_weight, cart_weight, linen_weight, sheet_count, customer_id, bin_id, created_at, customers(id, name, type, logo_url), bins(id, barcode)')
+      .select('id, cart_number, total_carts, total_weight, cart_weight, linen_weight, customer_id, bin_id, created_at, customers(id, name, type, logo_url), bins(id, barcode)')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
+    console.log('[fetchRecentLogs] error:', fetchErr, 'data:', data)
     if (data) setRecentLogs(data)
   }, [])
 
@@ -164,7 +166,7 @@ export default function ProductionFormPage() {
     setTotalCarts(log.total_carts || 1)
     setTotalWeight(log.total_weight ? String(log.total_weight) : '')
     setCartWeight(log.cart_weight ? String(log.cart_weight) : '')
-    setSheetCount(log.sheet_count ? String(log.sheet_count) : '')
+    setSheetCount('')
     setEditingId(log.id)
 
     // Fetch SKU quantities for hotel types
@@ -344,10 +346,6 @@ export default function ProductionFormPage() {
         cart_weight: cw,
         linen_weight: lw,
         logged_by: user.id,
-      }
-
-      if (isWellness) {
-        logRow.sheet_count = parseInt(sheetCount, 10) || 0
       }
 
       let logId
