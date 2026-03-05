@@ -816,7 +816,7 @@ export default function ProductionFormPage() {
                           )}
                         </td>
                         <td className="py-1 px-1 border border-slate-200 text-center align-middle">
-                          <div className="flex gap-1 justify-center">
+                          <div className="flex gap-3 justify-center">
                             <button
                               onClick={() => handleEdit(log)}
                               className="min-h-[44px] px-3 py-2 text-base font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"

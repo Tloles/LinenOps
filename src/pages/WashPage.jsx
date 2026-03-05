@@ -286,9 +286,11 @@ export default function WashPage() {
                             className="border border-gray-300 rounded px-1 py-1 text-xs w-full text-center"
                           />
                         </td>
-                        <td className="py-1 px-1 border border-slate-200 text-center whitespace-nowrap">
-                          <button onClick={() => saveEdit(log.id)} className="text-xs font-medium text-green-600 hover:text-green-800 mr-1">Save</button>
-                          <button onClick={cancelEdit} className="text-xs font-medium text-gray-400 hover:text-gray-600">Cancel</button>
+                        <td className="py-1 px-1 border border-slate-200 text-center align-middle">
+                          <div className="flex gap-3 justify-center">
+                            <button onClick={() => saveEdit(log.id)} className="min-h-[44px] px-3 py-2 text-base font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100">Save</button>
+                            <button onClick={cancelEdit} className="min-h-[44px] px-3 py-2 text-base font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100">Cancel</button>
+                          </div>
                         </td>
                       </>
                     ) : (
@@ -300,9 +302,11 @@ export default function WashPage() {
                         </td>
                         <td className="py-1 px-1 border border-slate-200 text-center">{log.wash_cycles?.name}</td>
                         <td className="py-1 px-1 border border-slate-200 text-center font-bold">{log.weight_lbs}</td>
-                        <td className="py-1 px-1 border border-slate-200 text-center whitespace-nowrap">
-                          <button onClick={() => startEdit(log)} className="font-medium text-blue-600 hover:text-blue-800 mr-1">Edit</button>
-                          <button onClick={() => deleteLog(log.id)} className="font-medium text-rose-500 hover:text-rose-700">Del</button>
+                        <td className="py-1 px-1 border border-slate-200 text-center align-middle">
+                          <div className="flex gap-3 justify-center">
+                            <button onClick={() => startEdit(log)} className="min-h-[44px] px-3 py-2 text-base font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100">Edit</button>
+                            <button onClick={() => deleteLog(log.id)} className="min-h-[44px] px-3 py-2 text-base font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100">Delete</button>
+                          </div>
                         </td>
                       </>
                     )}
