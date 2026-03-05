@@ -236,12 +236,12 @@ export default function WashPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-lg border-collapse" style={{ tableLayout: 'fixed' }}>
               <thead>
-                <tr className="bg-slate-100 text-left text-base font-bold text-[#1B2541] uppercase">
+                <tr className="bg-slate-100 text-center text-base font-bold text-[#1B2541] uppercase">
                   <th className="py-2 px-1 border border-slate-200">Time</th>
                   <th className="py-2 px-1 border border-slate-200">W</th>
                   <th className="py-2 px-1 border border-slate-200">Customer</th>
                   <th className="py-2 px-1 border border-slate-200">Cycle</th>
-                  <th className="py-2 px-1 border border-slate-200 text-right">lbs</th>
+                  <th className="py-2 px-1 border border-slate-200">lbs</th>
                   <th className="py-2 px-1 border border-slate-200" />
                 </tr>
               </thead>
@@ -250,8 +250,8 @@ export default function WashPage() {
                   <tr key={log.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     {editingId === log.id ? (
                       <>
-                        <td className="py-1 px-1 border border-slate-200 text-gray-500">{formatTime(log.washed_at)}</td>
-                        <td className="py-1 px-1 border border-slate-200">
+                        <td className="py-1 px-1 border border-slate-200 text-center text-gray-500">{formatTime(log.washed_at)}</td>
+                        <td className="py-1 px-1 border border-slate-200 text-center">
                           <select
                             value={editValues.washer_id}
                             onChange={(e) => setEditValues({ ...editValues, washer_id: e.target.value })}
@@ -260,7 +260,7 @@ export default function WashPage() {
                             {washers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                           </select>
                         </td>
-                        <td className="py-1 px-1 border border-slate-200">
+                        <td className="py-1 px-1 border border-slate-200 text-center">
                           <select
                             value={editValues.customer_id}
                             onChange={(e) => setEditValues({ ...editValues, customer_id: e.target.value })}
@@ -269,7 +269,7 @@ export default function WashPage() {
                             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
                         </td>
-                        <td className="py-1 px-1 border border-slate-200">
+                        <td className="py-1 px-1 border border-slate-200 text-center">
                           <select
                             value={editValues.wash_cycle_id}
                             onChange={(e) => setEditValues({ ...editValues, wash_cycle_id: e.target.value })}
@@ -278,29 +278,29 @@ export default function WashPage() {
                             {cycles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
                         </td>
-                        <td className="py-1 px-1 border border-slate-200">
+                        <td className="py-1 px-1 border border-slate-200 text-center">
                           <input
                             type="number"
                             value={editValues.weight_lbs}
                             onChange={(e) => setEditValues({ ...editValues, weight_lbs: e.target.value })}
-                            className="border border-gray-300 rounded px-1 py-1 text-xs w-full text-right"
+                            className="border border-gray-300 rounded px-1 py-1 text-xs w-full text-center"
                           />
                         </td>
-                        <td className="py-1 px-1 border border-slate-200 text-right whitespace-nowrap">
+                        <td className="py-1 px-1 border border-slate-200 text-center whitespace-nowrap">
                           <button onClick={() => saveEdit(log.id)} className="text-xs font-medium text-green-600 hover:text-green-800 mr-1">Save</button>
                           <button onClick={cancelEdit} className="text-xs font-medium text-gray-400 hover:text-gray-600">Cancel</button>
                         </td>
                       </>
                     ) : (
                       <>
-                        <td className="py-1 px-1 border border-slate-200 text-gray-500 whitespace-nowrap">{formatTime(log.washed_at)}</td>
-                        <td className="py-1 px-1 border border-slate-200 font-medium">{log.washers?.name?.replace(/\D/g, '') ? 'W' + log.washers.name.replace(/\D/g, '') : log.washers?.name}</td>
-                        <td className="py-1 px-1 border border-slate-200">
+                        <td className="py-1 px-1 border border-slate-200 text-center text-gray-500 whitespace-nowrap">{formatTime(log.washed_at)}</td>
+                        <td className="py-1 px-1 border border-slate-200 text-center font-medium">{log.washers?.name?.replace(/\D/g, '') ? 'W' + log.washers.name.replace(/\D/g, '') : log.washers?.name}</td>
+                        <td className="py-1 px-1 border border-slate-200 text-center">
                           <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={120} />
                         </td>
-                        <td className="py-1 px-1 border border-slate-200">{log.wash_cycles?.name}</td>
-                        <td className="py-1 px-1 border border-slate-200 text-right font-bold">{log.weight_lbs}</td>
-                        <td className="py-1 px-1 border border-slate-200 text-right whitespace-nowrap">
+                        <td className="py-1 px-1 border border-slate-200 text-center">{log.wash_cycles?.name}</td>
+                        <td className="py-1 px-1 border border-slate-200 text-center font-bold">{log.weight_lbs}</td>
+                        <td className="py-1 px-1 border border-slate-200 text-center whitespace-nowrap">
                           <button onClick={() => startEdit(log)} className="font-medium text-blue-600 hover:text-blue-800 mr-1">Edit</button>
                           <button onClick={() => deleteLog(log.id)} className="font-medium text-rose-500 hover:text-rose-700">Del</button>
                         </td>
