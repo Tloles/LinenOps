@@ -80,7 +80,7 @@ export default function BinListPage() {
         .insert({
           barcode,
           description: description || null,
-          tare_weight: tareWeight ? parseFloat(tareWeight) : null,
+          tare_weight: parseFloat(tareWeight),
           customer_id: customerId || null,
           current_status: 'clean_staged',
         })
@@ -167,7 +167,7 @@ export default function BinListPage() {
 
           <div>
             <label htmlFor="bin-tare" className="block text-sm font-medium text-gray-700 mb-1">
-              Tare Weight (lbs)
+              Tare Weight (lbs) *
             </label>
             <input
               id="bin-tare"
@@ -175,9 +175,10 @@ export default function BinListPage() {
               inputMode="decimal"
               step="0.01"
               min="0"
+              required
               value={tareWeight}
               onChange={(e) => setTareWeight(e.target.value)}
-              placeholder="Optional"
+              placeholder="e.g. 135"
               className="w-full py-3 px-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
