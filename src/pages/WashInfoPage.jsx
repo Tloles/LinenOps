@@ -1,6 +1,20 @@
 import { useEffect, useState, useCallback } from 'react'
+import { WashingMachine } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import CustomerLogo from '../components/CustomerLogo'
+
+function washerIconSize(capacity) {
+  if (capacity >= 200) return 64
+  if (capacity >= 100) return 48
+  if (capacity >= 80) return 42
+  return 36
+}
+
+function utilizationIconColor(pct) {
+  if (pct >= 80) return 'text-rose-500'
+  if (pct >= 50) return 'text-amber-500'
+  return 'text-green-500'
+}
 
 function toLocalDateStr(date) {
   const y = date.getFullYear()
@@ -13,12 +27,6 @@ function utilizationColor(pct) {
   if (pct >= 80) return 'bg-rose-100 border-rose-300 text-rose-800'
   if (pct >= 50) return 'bg-amber-50 border-amber-300 text-amber-800'
   return 'bg-green-50 border-green-300 text-green-800'
-}
-
-function utilizationDot(pct) {
-  if (pct >= 80) return 'bg-rose-500'
-  if (pct >= 50) return 'bg-amber-500'
-  return 'bg-green-500'
 }
 
 export default function WashInfoPage() {
@@ -231,7 +239,7 @@ export default function WashInfoPage() {
           {washerUtil.map(w => (
             <div key={w.id} className={`rounded-xl px-3 py-2 border ${utilizationColor(w.pct)}`}>
               <div className="flex items-center gap-2 mb-1">
-                <span className={`inline-block w-3 h-3 rounded-full ${utilizationDot(w.pct)}`} />
+                <WashingMachine size={washerIconSize(w.capacity)} className={utilizationIconColor(w.pct)} />
                 <span className="text-lg font-bold">{w.name}</span>
               </div>
               <p className="text-sm font-medium">{w.loads} load{w.loads !== 1 ? 's' : ''} &middot; {w.lbs} lbs</p>
