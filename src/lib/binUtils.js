@@ -20,12 +20,7 @@ export function groupByCustomer(bins, statuses) {
   return Object.values(map).sort((a, b) => a.name.localeCompare(b.name))
 }
 
-const WASHER_ICON_SIZES = { 1: 150, 2: 150, 3: 75, 4: 100, 5: 125, 6: 150 }
-
-export function washerIconSize(name) {
-  const num = parseInt(String(name).replace(/\D/g, ''), 10)
-  return WASHER_ICON_SIZES[num] || 100
-}
+export const WASHER_ICON_SIZE = 125
 
 export function groupBinsByCustomer(bins) {
   const map = {}

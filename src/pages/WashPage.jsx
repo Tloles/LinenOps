@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { WashingMachine } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { washerIconSize } from '../lib/binUtils'
+import { WASHER_ICON_SIZE } from '../lib/binUtils'
 import CustomerLogo from '../components/CustomerLogo'
 
 export default function WashPage() {
@@ -137,7 +137,7 @@ export default function WashPage() {
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                <WashingMachine size={washerIconSize(w.name)} />
+                <WashingMachine size={WASHER_ICON_SIZE} />
                 {w.name} ({w.capacity} lbs)
               </button>
             ))}
