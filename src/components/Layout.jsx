@@ -59,7 +59,7 @@ export default function Layout() {
         )}
       </nav>
 
-      <main className="flex-1 p-2 sm:p-3 w-full">
+      <main className="flex-1 p-2 sm:p-3 w-full" style={{ overflowX: 'hidden' }}>
         <Outlet />
       </main>
     </div>

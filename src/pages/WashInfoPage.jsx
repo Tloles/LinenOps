@@ -152,21 +152,21 @@ export default function WashInfoPage() {
   const cycleSummary = Object.values(cycleMap).sort((a, b) => b.loads - a.loads)
 
   return (
-    <div className="space-y-4" style={{ overflowX: 'hidden' }}>
+    <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900">Wash Info</h2>
 
       {/* Washer Utilization (today only) — always visible at top */}
-      <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2" style={{ overflow: 'hidden' }}>
+      <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
         <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider">Washer Utilization (Today)</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '4px', width: '100%', boxSizing: 'border-box' }}>
+        <div className="grid grid-cols-6 gap-1">
           {washerUtil.map(w => (
-            <div key={w.id} className={`rounded-md py-1 border text-center ${utilizationColor(w.pct)}`} style={{ minWidth: 0, overflow: 'hidden' }}>
-              <div className="flex justify-center" style={{ overflow: 'hidden' }}>
-                <WashingMachine className={utilizationIconColor(w.pct)} style={{ width: '100%', maxWidth: 100, height: 'auto', display: 'block' }} />
+            <div key={w.id} className={`rounded-md py-1 border text-center min-w-0 overflow-hidden ${utilizationColor(w.pct)}`}>
+              <div className="flex justify-center px-2">
+                <WashingMachine className={utilizationIconColor(w.pct)} style={{ width: '80%', maxWidth: 80, height: 'auto' }} />
               </div>
-              <p className="text-lg font-bold leading-tight mt-0.5">{w.name}</p>
-              <p className="text-[15px] font-medium leading-tight">{w.loads}L &middot; {w.lbs}lb</p>
-              <p className="text-[15px] font-medium leading-tight">{w.pct}%</p>
+              <p className="text-sm font-bold leading-tight mt-0.5 truncate">{w.name}</p>
+              <p className="text-xs font-medium leading-tight">{w.loads}L &middot; {w.lbs}lb</p>
+              <p className="text-xs font-medium leading-tight">{w.pct}%</p>
             </div>
           ))}
         </div>
