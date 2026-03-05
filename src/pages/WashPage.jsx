@@ -172,7 +172,7 @@ export default function WashPage() {
                     : 'border-gray-200'
                 }`}
               >
-                <CustomerLogo url={c.logo_url} name={c.name} size={175} />
+                <CustomerLogo url={c.logo_url} name={c.name} size={200} />
               </button>
             ))}
           </div>
