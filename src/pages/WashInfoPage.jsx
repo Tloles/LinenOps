@@ -162,6 +162,23 @@ export default function WashInfoPage() {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900">Wash Info</h2>
 
+      {/* Washer Utilization (today only) — always visible at top */}
+      <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider">Washer Utilization (Today)</h3>
+        <div className="grid grid-cols-6 gap-1.5">
+          {washerUtil.map(w => (
+            <div key={w.id} className={`rounded-lg px-1.5 py-1.5 border text-center ${utilizationColor(w.pct)}`}>
+              <div className="flex justify-center">
+                <WashingMachine size={washerIconSize(w.capacity)} className={utilizationIconColor(w.pct)} />
+              </div>
+              <p className="text-xs font-bold leading-tight mt-0.5">{w.name}</p>
+              <p className="text-[10px] font-medium leading-tight">{w.loads}L &middot; {w.lbs}lb</p>
+              <p className="text-[10px] font-medium leading-tight">{w.pct}%</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -229,23 +246,6 @@ export default function WashInfoPage() {
             <p className="text-3xl font-bold text-[#1B2541]">{avgLbs}</p>
             <p className="text-xs font-semibold text-slate-500 uppercase">Avg lbs/load</p>
           </div>
-        </div>
-      </div>
-
-      {/* Washer Utilization (today only) */}
-      <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
-        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider">Washer Utilization (Today)</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {washerUtil.map(w => (
-            <div key={w.id} className={`rounded-xl px-3 py-2 border ${utilizationColor(w.pct)}`}>
-              <div className="flex items-center gap-2 mb-1">
-                <WashingMachine size={washerIconSize(w.capacity)} className={utilizationIconColor(w.pct)} />
-                <span className="text-lg font-bold">{w.name}</span>
-              </div>
-              <p className="text-sm font-medium">{w.loads} load{w.loads !== 1 ? 's' : ''} &middot; {w.lbs} lbs</p>
-              <p className="text-sm font-medium">{w.pct}% utilization</p>
-            </div>
-          ))}
         </div>
       </div>
 
