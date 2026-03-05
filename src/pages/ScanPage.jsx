@@ -283,13 +283,8 @@ export default function ScanPage() {
     return { status, total, customers }
   })
 
-  // On Truck — 4 fixed windows by truck size + status
+  // On Truck — 4 fixed windows by bin.size + status
   const onTruckStatusBins = summaryBins.filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled')
-  const truckSizeMap = {}
-  for (const truck of trucks) {
-    if (truck.name.includes('16')) truckSizeMap[truck.id] = '16'
-    else if (truck.name.includes('26')) truckSizeMap[truck.id] = '26'
-  }
   const TRUCK_WINDOWS = [
     { label: "16' Clean",  status: 'loaded',           size: '16' },
     { label: "16' Soiled", status: 'picked_up_soiled', size: '16' },
@@ -298,7 +293,7 @@ export default function ScanPage() {
   ]
   const truckWindows = TRUCK_WINDOWS.map(({ label, status, size }) => {
     const filtered = onTruckStatusBins.filter(b =>
-      b.current_status === status && truckSizeMap[binTruckMap[b.id]] === size
+      b.current_status === status && b.size === size
     )
     const customers = groupBinsByCustomer(filtered)
     const total = customers.reduce((s, c) => s + c.count, 0)
