@@ -126,19 +126,19 @@ export default function WashPage() {
         {/* Washer Row */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Washer</label>
-          <div className="flex gap-2 overflow-x-auto">
+          <div className="grid grid-cols-6 gap-2">
             {washers.map((w) => (
               <button
                 key={w.id}
                 onClick={() => setSelectedWasher(w.id)}
-                className={`min-h-[48px] px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap flex flex-col items-center gap-1 ${
+                className={`min-h-[48px] py-2 rounded-lg text-sm font-medium flex flex-col items-center gap-1 min-w-0 ${
                   selectedWasher === w.id
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                <WashingMachine size={WASHER_ICON_SIZE} />
-                <span>{w.name}</span>
+                <WashingMachine className="w-full h-auto max-w-[80px]" />
+                <span className="truncate w-full text-center">{w.name}</span>
                 <span className="text-xs opacity-80">{w.capacity_lbs || w.capacity} lbs</span>
               </button>
             ))}
