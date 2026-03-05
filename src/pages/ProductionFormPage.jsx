@@ -571,7 +571,7 @@ export default function ProductionFormPage() {
             {/* Header matching physical form: logo, title, client, date/cart */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
               <div className="flex justify-center mb-2">
-                <CustomerLogo url={customer.logo_url} name={customer.name} size={120} />
+                <CustomerLogo url={customer.logo_url} name={customer.name} size={250} />
               </div>
               <h3 className="text-xl font-medium text-gray-900 mb-3">Hotel Linen Cart Sheet</h3>
               <div className="text-left space-y-2">
