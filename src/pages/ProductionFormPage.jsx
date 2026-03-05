@@ -773,11 +773,12 @@ export default function ProductionFormPage() {
               <table className="w-full text-lg border-collapse" style={{ tableLayout: 'fixed' }}>
                 <thead>
                   <tr className="bg-slate-100 text-center text-base font-bold text-[#1B2541] uppercase">
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '15%' }}>Time</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '25%' }}>Customer</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '15%' }}>Cart</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '15%' }}>Linen lbs</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '30%' }}>Actions</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '12%' }}>Time</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '20%' }}>Customer</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '12%' }}>Cart</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '12%' }}>Linen lbs</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '20%' }}>Reprint</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '24%' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -803,26 +804,28 @@ export default function ProductionFormPage() {
                         <td className="py-1 px-1 border border-slate-200 text-center font-bold text-base">
                           {log.linen_weight}
                         </td>
-                        <td className="py-1 px-1 border border-slate-200 text-center">
-                          <div className="flex flex-wrap gap-1 justify-center">
+                        <td className="py-1 px-1 border border-slate-200 text-center align-middle">
+                          {canReprint && (
+                            <button
+                              onClick={() => handleReprint(log)}
+                              disabled={reprinting}
+                              className="min-h-[44px] px-4 py-2 text-base font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50"
+                            >
+                              Reprint
+                            </button>
+                          )}
+                        </td>
+                        <td className="py-1 px-1 border border-slate-200 text-center align-middle">
+                          <div className="flex gap-1 justify-center">
                             <button
                               onClick={() => handleEdit(log)}
-                              className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
+                              className="min-h-[44px] px-3 py-2 text-base font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
                             >
                               Edit
                             </button>
-                            {canReprint && (
-                              <button
-                                onClick={() => handleReprint(log)}
-                                disabled={reprinting}
-                                className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 disabled:opacity-50"
-                              >
-                                Reprint
-                              </button>
-                            )}
                             <button
                               onClick={() => handleDelete(log)}
-                              className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100"
+                              className="min-h-[44px] px-3 py-2 text-base font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100"
                             >
                               Delete
                             </button>
