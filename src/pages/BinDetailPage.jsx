@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { STATUS_COLORS, statusLabel } from '../lib/constants'
+import { STATUS_COLORS, statusLabel, BIN_COLORS } from '../lib/constants'
 import CustomerLogo from '../components/CustomerLogo'
 
 export default function BinDetailPage() {
@@ -100,6 +100,23 @@ export default function BinDetailPage() {
     }
   }
 
+  async function handleUpdateColor(colorName) {
+    setActionLoading(true)
+    setError(null)
+    try {
+      const { error } = await supabase
+        .from('bins')
+        .update({ color: colorName || null })
+        .eq('id', id)
+      if (error) throw error
+      await fetchData()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   async function handleUpdateTareWeight(value) {
     setActionLoading(true)
     setError(null)
@@ -166,9 +183,18 @@ export default function BinDetailPage() {
           </span>
         </div>
 
-        {bin.description && (
-          <p className="text-gray-600 mb-2">{bin.description}</p>
-        )}
+        {bin.color && (() => {
+          const c = BIN_COLORS.find(bc => bc.name === bin.color)
+          return c ? (
+            <div className="flex items-center gap-2 mb-2">
+              <span
+                className="inline-block w-6 h-6 rounded-full"
+                style={{ backgroundColor: c.hex, border: `1px solid ${c.border || c.hex}` }}
+              />
+              <span className="text-gray-600">{c.name}</span>
+            </div>
+          ) : null
+        })()}
 
         <p className="text-gray-600 mb-2">
           <span className="font-medium text-gray-700">Tare Weight:</span>{' '}
@@ -205,6 +231,41 @@ export default function BinDetailPage() {
               >
                 {actionLoading ? 'Removing...' : 'Remove Bin'}
               </button>
+            )}
+
+            {/* Color */}
+            {!isRetired && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Color
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  {BIN_COLORS.map((c) => (
+                    <button
+                      key={c.name}
+                      type="button"
+                      title={c.name}
+                      onClick={() => handleUpdateColor(bin.color === c.name ? '' : c.name)}
+                      disabled={actionLoading}
+                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
+                        bin.color === c.name
+                          ? 'ring-3 ring-blue-500 ring-offset-2 scale-110'
+                          : 'hover:scale-105'
+                      }`}
+                      style={{
+                        backgroundColor: c.hex,
+                        border: `2px solid ${c.border || c.hex}`,
+                      }}
+                    >
+                      {bin.color === c.name && (
+                        <svg className={`w-5 h-5 ${c.name === 'White' || c.name === 'Yellow' ? 'text-gray-700' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Tare Weight */}

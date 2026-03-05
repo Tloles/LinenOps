@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { STATUS_COLORS, statusLabel } from '../lib/constants'
+import { STATUS_COLORS, statusLabel, BIN_COLORS } from '../lib/constants'
 import CustomerLogo from '../components/CustomerLogo'
 
 export default function BinListPage() {
@@ -15,7 +15,7 @@ export default function BinListPage() {
   // Inline add form state
   const [showForm, setShowForm] = useState(false)
   const [barcode, setBarcode] = useState('')
-  const [description, setDescription] = useState('')
+  const [color, setColor] = useState('')
   const [customerId, setCustomerId] = useState('')
   const [tareWeight, setTareWeight] = useState('')
   const [saving, setSaving] = useState(false)
@@ -58,7 +58,7 @@ export default function BinListPage() {
 
   function openAddForm() {
     setBarcode('')
-    setDescription('')
+    setColor('')
     setTareWeight('')
     setCustomerId('')
     setFormError(null)
@@ -83,7 +83,7 @@ export default function BinListPage() {
         .from('bins')
         .insert({
           barcode,
-          description: description || null,
+          color: color || null,
           tare_weight: parseFloat(tareWeight),
           customer_id: customerId || null,
           current_status: 'clean_staged',
@@ -168,17 +168,37 @@ export default function BinListPage() {
           </div>
 
           <div>
-            <label htmlFor="bin-desc" className="block text-sm font-medium text-gray-700 mb-1">
-              Description
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Color
             </label>
-            <input
-              id="bin-desc"
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description"
-              className="w-full py-3 px-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+            <div className="flex flex-wrap gap-3">
+              {BIN_COLORS.map((c) => (
+                <button
+                  key={c.name}
+                  type="button"
+                  title={c.name}
+                  onClick={() => setColor(color === c.name ? '' : c.name)}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                    color === c.name
+                      ? 'ring-3 ring-blue-500 ring-offset-2 scale-110'
+                      : 'hover:scale-105'
+                  }`}
+                  style={{
+                    backgroundColor: c.hex,
+                    border: `2px solid ${c.border || c.hex}`,
+                  }}
+                >
+                  {color === c.name && (
+                    <svg className={`w-5 h-5 ${c.name === 'White' || c.name === 'Yellow' ? 'text-gray-700' : 'text-white'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+            {color && (
+              <p className="text-sm text-gray-500 mt-1">{color}</p>
+            )}
           </div>
 
           <div>
@@ -266,10 +286,17 @@ export default function BinListPage() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                  {bin.color && (() => {
+                    const c = BIN_COLORS.find(bc => bc.name === bin.color)
+                    return c ? (
+                      <span
+                        className="inline-block w-5 h-5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: c.hex, border: `1px solid ${c.border || c.hex}` }}
+                        title={c.name}
+                      />
+                    ) : null
+                  })()}
                   <span className="font-mono font-medium text-gray-900">{bin.barcode}</span>
-                  {bin.description && (
-                    <span className="text-sm text-gray-500">{bin.description}</span>
-                  )}
                 </div>
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${

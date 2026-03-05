@@ -43,3 +43,16 @@ export const CUSTOMER_TYPES = [
 export function isWellnessType(type) {
   return type === 'wellness'
 }
+
+export const BIN_COLORS = [
+  { name: 'White',  hex: '#FFFFFF', border: '#D1D5DB' },
+  { name: 'Gray',   hex: '#6B7280' },
+  { name: 'Black',  hex: '#1F2937' },
+  { name: 'Red',    hex: '#EF4444' },
+  { name: 'Orange', hex: '#F97316' },
+  { name: 'Yellow', hex: '#EAB308' },
+  { name: 'Green',  hex: '#22C55E' },
+  { name: 'Blue',   hex: '#3B82F6' },
+  { name: 'Purple', hex: '#A855F7' },
+  { name: 'Brown',  hex: '#92400E' },
+]
