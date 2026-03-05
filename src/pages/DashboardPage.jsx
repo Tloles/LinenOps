@@ -98,7 +98,14 @@ export default function DashboardPage() {
     return { status, total, customers }
   })
 
-  // On Truck — 4 fixed windows by size + status
+  // On Truck — 4 fixed windows by truck size + status
+  // Derive size from the truck name (e.g. "16' Truck") via binTruckMap, not bin.size
+  const truckSizeMap = {}
+  for (const truck of trucks) {
+    if (truck.name.includes('16')) truckSizeMap[truck.id] = '16'
+    else if (truck.name.includes('26')) truckSizeMap[truck.id] = '26'
+  }
+
   const TRUCK_WINDOWS = [
     { label: "16' Clean",  status: 'loaded',           size: '16' },
     { label: "16' Soiled", status: 'picked_up_soiled', size: '16' },
@@ -106,7 +113,9 @@ export default function DashboardPage() {
     { label: "26' Soiled", status: 'picked_up_soiled', size: '26' },
   ]
   const truckWindows = TRUCK_WINDOWS.map(({ label, status, size }) => {
-    const filtered = bins.filter(b => b.current_status === status && b.size === size)
+    const filtered = onTruckStatusBins.filter(b =>
+      b.current_status === status && truckSizeMap[binTruckMap[b.id]] === size
+    )
     const customers = groupBinsByCustomer(filtered)
     const total = customers.reduce((s, c) => s + c.count, 0)
     return { label, total, customers }
