@@ -606,20 +606,23 @@ export default function ProductionFormPage() {
         {bin && customer && (
           <div className="space-y-4">
 
-            {/* Header matching physical form: logo, title, client, date/cart */}
+            {/* Header: White Sail logo, title, customer logo, client/date */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
               <div className="flex justify-center mb-2">
+                <img src="/header-logo.png" alt="White Sail" style={{ maxHeight: 80, maxWidth: 200 }} />
+              </div>
+              <h3 className="text-[28px] font-bold text-gray-900 mb-3">Linen Cart Manifest</h3>
+              <div className="flex justify-center mb-3">
                 <CustomerLogo url={customer.logo_url} name={customer.name} size={250} />
               </div>
-              <h3 className="text-xl font-medium text-gray-900 mb-3">Hotel Linen Cart Sheet</h3>
               <div className="text-left space-y-2">
-                <p className="text-base">
-                  <span className="font-semibold">CLIENT:</span>{' '}
-                  <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{customer.name}</span>
+                <p className="text-lg">
+                  <span className="font-bold text-lg">CLIENT:</span>{' '}
+                  <span className="text-gray-800 text-lg underline underline-offset-4 decoration-gray-300">{customer.name}</span>
                 </p>
-                <p className="text-base">
-                  <span className="font-semibold">DATE:</span>{' '}
-                  <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{todayFormatted()}</span>
+                <p className="text-lg">
+                  <span className="font-bold text-lg">DATE:</span>{' '}
+                  <span className="text-gray-800 text-lg underline underline-offset-4 decoration-gray-300">{todayFormatted()}</span>
                 </p>
               </div>
             </div>
@@ -848,24 +851,29 @@ export default function ProductionFormPage() {
       {printData && (
         <div className="print-only p-4">
           <div className="max-w-2xl mx-auto">
-            {/* Customer logo centered */}
+            {/* White Sail logo */}
+            <div className="text-center mb-2">
+              <img src="/header-logo.png" alt="White Sail" className="mx-auto" style={{ maxHeight: 80, maxWidth: 200 }} />
+            </div>
+
+            {/* Title */}
+            <h1 className="font-bold text-center mb-3" style={{ fontSize: '28px' }}>Linen Cart Manifest</h1>
+
+            {/* Customer logo */}
             {printData.customerLogoUrl && (
               <div className="text-center mb-2">
                 <img src={printData.customerLogoUrl} alt={printData.customerName} className="mx-auto" style={{ maxHeight: 100, maxWidth: 250 }} />
               </div>
             )}
 
-            {/* Title */}
-            <h1 className="text-2xl text-center mb-3">Hotel Linen Cart Sheet</h1>
-
-            {/* CLIENT / DATE / CART lines */}
-            <div className="mb-3 text-lg">
+            {/* CLIENT / DATE lines */}
+            <div className="mb-3" style={{ fontSize: '18px' }}>
               <p className="mb-1">
-                <span className="font-semibold">CLIENT:</span>{' '}
+                <span className="font-bold">CLIENT:</span>{' '}
                 <span className="underline underline-offset-4">{printData.customerName}</span>
               </p>
               <p>
-                <span className="font-semibold">DATE:</span>{' '}
+                <span className="font-bold">DATE:</span>{' '}
                 <span className="underline underline-offset-4">{printData.date}</span>
               </p>
             </div>
