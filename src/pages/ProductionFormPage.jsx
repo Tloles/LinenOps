@@ -62,6 +62,9 @@ export default function ProductionFormPage() {
   const [recentLogs, setRecentLogs] = useState([])
   const [reprinting, setReprinting] = useState(false)
 
+  // Edit mode
+  const [editingId, setEditingId] = useState(null)
+
   const linenWeight = useMemo(() => {
     const tw = parseFloat(totalWeight)
     const cw = parseFloat(cartWeight)
@@ -89,7 +92,7 @@ export default function ProductionFormPage() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data } = await supabase
       .from('production_logs')
-      .select('id, cart_number, total_carts, total_weight, cart_weight, linen_weight, customer_id, created_at, customers(id, name, type, logo_url)')
+      .select('id, cart_number, total_carts, total_weight, cart_weight, linen_weight, sheet_count, customer_id, bin_id, created_at, customers(id, name, type, logo_url), bins(id, barcode)')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
     if (data) setRecentLogs(data)
@@ -145,6 +148,70 @@ export default function ProductionFormPage() {
       setError(err.message)
     } finally {
       setReprinting(false)
+    }
+  }
+
+  // Edit a past log — pre-fill the form
+  async function handleEdit(log) {
+    setError(null)
+    setSuccess(null)
+    setPrintData(null)
+
+    // Set customer/bin from log data
+    setCustomer(log.customers)
+    setBin(log.bins ? { id: log.bins.id, barcode: log.bins.barcode, customers: log.customers } : { id: log.bin_id, customers: log.customers })
+    setCartNumber(log.cart_number || 1)
+    setTotalCarts(log.total_carts || 1)
+    setTotalWeight(log.total_weight ? String(log.total_weight) : '')
+    setCartWeight(log.cart_weight ? String(log.cart_weight) : '')
+    setSheetCount(log.sheet_count ? String(log.sheet_count) : '')
+    setEditingId(log.id)
+
+    // Fetch SKU quantities for hotel types
+    const custType = log.customers?.type
+    const isHotel = custType === 'hotel' || custType === 'limited_service' || custType === 'specialty'
+    if (isHotel) {
+      const { data: items } = await supabase
+        .from('production_log_items')
+        .select('hotel_sku_id, quantity')
+        .eq('production_log_id', log.id)
+
+      const qtyMap = {}
+      if (items) {
+        for (const item of items) {
+          qtyMap[item.hotel_sku_id] = item.quantity
+        }
+      }
+      setSkuQuantities(qtyMap)
+    } else {
+      setSkuQuantities({})
+    }
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Delete a log with confirmation
+  async function handleDelete(log) {
+    if (!window.confirm('Are you sure you want to delete this production log?')) return
+    try {
+      // Delete line items first
+      await supabase
+        .from('production_log_items')
+        .delete()
+        .eq('production_log_id', log.id)
+
+      const { error: delError } = await supabase
+        .from('production_logs')
+        .delete()
+        .eq('id', log.id)
+
+      if (delError) throw delError
+      setSuccess('Production log deleted.')
+      fetchRecentLogs()
+      setTimeout(() => setSuccess(null), 4000)
+    } catch (err) {
+      setError(err.message)
     }
   }
 
@@ -283,20 +350,41 @@ export default function ProductionFormPage() {
         logRow.sheet_count = parseInt(sheetCount, 10) || 0
       }
 
-      const { data: logData, error: logError } = await supabase
-        .from('production_logs')
-        .insert(logRow)
-        .select()
-        .single()
+      let logId
 
-      if (logError) throw logError
+      if (editingId) {
+        // Update existing log
+        const { error: logError } = await supabase
+          .from('production_logs')
+          .update(logRow)
+          .eq('id', editingId)
+
+        if (logError) throw logError
+        logId = editingId
+
+        // Delete old line items, then re-insert
+        await supabase
+          .from('production_log_items')
+          .delete()
+          .eq('production_log_id', editingId)
+      } else {
+        // Insert new log
+        const { data: logData, error: logError } = await supabase
+          .from('production_logs')
+          .insert(logRow)
+          .select()
+          .single()
+
+        if (logError) throw logError
+        logId = logData.id
+      }
 
       // Insert SKU line items for hotel types
       if (isHotelType) {
         const items = Object.entries(skuQuantities)
           .filter(([, qty]) => qty > 0)
           .map(([skuId, qty]) => ({
-            production_log_id: logData.id,
+            production_log_id: logId,
             hotel_sku_id: skuId,
             quantity: qty,
           }))
@@ -331,7 +419,7 @@ export default function ProductionFormPage() {
         })
       }
 
-      setSuccess('Production log saved!')
+      setSuccess(editingId ? 'Production log updated!' : 'Production log saved!')
       fetchRecentLogs()
 
       // Reset form for next cart
@@ -339,10 +427,16 @@ export default function ProductionFormPage() {
       setSheetCount('')
       setTotalWeight('')
       setCartWeight('')
-      setCartNumber(prev => prev + 1)
+      if (editingId) {
+        setEditingId(null)
+        setBin(null)
+        setCustomer(null)
+      } else {
+        setCartNumber(prev => prev + 1)
+      }
 
-      // Auto-print for hotel types
-      if (isHotelType) {
+      // Auto-print for hotel types (new submissions only, not edits)
+      if (isHotelType && !editingId) {
         setTimeout(() => window.print(), 500)
       }
 
@@ -659,14 +753,14 @@ export default function ProductionFormPage() {
                 canSubmit ? 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800' : 'bg-gray-300 cursor-not-allowed'
               }`}
             >
-              {submitting ? 'Saving...' : 'Submit Production Log'}
+              {submitting ? 'Saving...' : editingId ? 'Update Production Log' : 'Submit Production Log'}
             </button>
 
             <button
-              onClick={resetScan}
+              onClick={() => { resetScan(); setEditingId(null) }}
               className="w-full min-h-[48px] text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
             >
-              Scan Another Cart
+              {editingId ? 'Cancel Edit' : 'Scan Another Cart'}
             </button>
           </div>
         )}
@@ -681,10 +775,11 @@ export default function ProductionFormPage() {
               <table className="w-full text-lg border-collapse" style={{ tableLayout: 'fixed' }}>
                 <thead>
                   <tr className="bg-slate-100 text-center text-base font-bold text-[#1B2541] uppercase">
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '20%' }}>Time</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '35%' }}>Customer</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '25%' }}>Cart</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '20%' }}>Linen lbs</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '15%' }}>Time</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '25%' }}>Customer</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '15%' }}>Cart</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '15%' }}>Linen lbs</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '30%' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -694,8 +789,7 @@ export default function ProductionFormPage() {
                     return (
                       <tr
                         key={log.id}
-                        onClick={() => canReprint && !reprinting && handleReprint(log)}
-                        className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} ${canReprint ? 'cursor-pointer hover:bg-blue-50 active:bg-blue-100' : ''}`}
+                        className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
                       >
                         <td className="py-1 px-1 border border-slate-200 text-center text-gray-500 whitespace-nowrap text-base">
                           {formatTime(log.created_at)}
@@ -708,6 +802,31 @@ export default function ProductionFormPage() {
                         </td>
                         <td className="py-1 px-1 border border-slate-200 text-center font-bold text-base">
                           {log.linen_weight}
+                        </td>
+                        <td className="py-1 px-1 border border-slate-200 text-center">
+                          <div className="flex flex-wrap gap-1 justify-center">
+                            <button
+                              onClick={() => handleEdit(log)}
+                              className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
+                            >
+                              Edit
+                            </button>
+                            {canReprint && (
+                              <button
+                                onClick={() => handleReprint(log)}
+                                disabled={reprinting}
+                                className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 disabled:opacity-50"
+                              >
+                                Reprint
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDelete(log)}
+                              className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
