@@ -188,34 +188,21 @@ export default function ScanPage() {
 
   async function handleTruckSizeSelect(size) {
     if (!bin || !pendingStatus) return
-    setUpdating(true)
-    setError(null)
-
-    try {
-      // Save size to the bin
-      const { error: sizeErr } = await supabase
-        .from('bins')
-        .update({ size })
-        .eq('id', bin.id)
-      if (sizeErr) throw sizeErr
-
-      // Find the matching truck by size
-      const matchingTruck = trucks.find(t => t.name.includes(size))
-      const truckId = matchingTruck ? matchingTruck.id : null
-
-      await handleStatusUpdate(pendingStatus, truckId)
-    } catch (err) {
-      setError(err.message)
-      setUpdating(false)
-    }
+    const matchingTruck = trucks.find(t => t.name.includes(size))
+    const truckId = matchingTruck ? matchingTruck.id : null
+    await handleStatusUpdate(pendingStatus, truckId, size)
   }
 
-  async function handleStatusUpdate(newStatus, truckId = null) {
+  async function handleStatusUpdate(newStatus, truckId = null, binSize = null) {
     if (!bin) return
     setUpdating(true)
     setError(null)
 
     try {
+      // Build the bin update payload — always includes status, optionally size
+      const binUpdate = { current_status: newStatus }
+      if (binSize) binUpdate.size = binSize
+
       // Try the record_scan RPC first
       const rpcParams = {
         p_bin_id: bin.id,
@@ -239,12 +226,19 @@ export default function ScanPage() {
 
           const { error: updateErr } = await supabase
             .from('bins')
-            .update({ current_status: newStatus })
+            .update(binUpdate)
             .eq('id', bin.id)
           if (updateErr) throw updateErr
         } else {
           throw rpcError
         }
+      } else if (binSize) {
+        // RPC succeeded but doesn't handle size — update size separately
+        const { error: sizeErr } = await supabase
+          .from('bins')
+          .update({ size: binSize })
+          .eq('id', bin.id)
+        if (sizeErr) throw sizeErr
       }
 
       setSuccess(`"${bin.barcode}" updated to ${statusLabel(newStatus)}`)
