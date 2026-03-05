@@ -792,8 +792,10 @@ export default function ProductionFormPage() {
                         <td className="py-1 px-1 border border-slate-200 text-center text-gray-500 whitespace-nowrap text-base">
                           {formatTime(log.created_at)}
                         </td>
-                        <td className="py-1 px-1 border border-slate-200 text-center">
-                          <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={80} />
+                        <td className="py-1 px-1 border border-slate-200">
+                          <div className="flex justify-center">
+                            <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={80} />
+                          </div>
                         </td>
                         <td className="py-1 px-1 border border-slate-200 text-center font-medium text-base">
                           {log.cart_number} of {log.total_carts}
