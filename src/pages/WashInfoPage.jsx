@@ -64,10 +64,10 @@ export default function WashInfoPage() {
 
     let query = supabase
       .from('wash_logs')
-      .select('id, weight_lbs, washer_id, customer_id, wash_cycle_id, created_at, customers(id, name, logo_url), washers(id, name, capacity, capacity_lbs), wash_cycles(id, name)')
-      .gte('created_at', rangeStart.toISOString())
-      .lt('created_at', rangeEnd.toISOString())
-      .order('created_at', { ascending: false })
+      .select('id, weight_lbs, washer_id, customer_id, wash_cycle_id, washed_at, customers(id, name, logo_url), washers(id, name, capacity, capacity_lbs), wash_cycles(id, name)')
+      .gte('washed_at', rangeStart.toISOString())
+      .lt('washed_at', rangeEnd.toISOString())
+      .order('washed_at', { ascending: false })
 
     if (filterCustomer) query = query.eq('customer_id', filterCustomer)
     if (filterWasher) query = query.eq('washer_id', filterWasher)
@@ -87,8 +87,8 @@ export default function WashInfoPage() {
     const { data } = await supabase
       .from('wash_logs')
       .select('id, weight_lbs, washer_id')
-      .gte('created_at', todayStart.toISOString())
-      .lt('created_at', todayEnd.toISOString())
+      .gte('washed_at', todayStart.toISOString())
+      .lt('washed_at', todayEnd.toISOString())
 
     setTodayLogs(data || [])
   }, [])

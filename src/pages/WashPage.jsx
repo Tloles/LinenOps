@@ -49,9 +49,9 @@ export default function WashPage() {
     const { data, error } = await supabase
       .from('wash_logs')
       .select('id, weight_lbs, washer_id, customer_id, customers(id, name, logo_url), washers(id, name)')
-      .gte('created_at', todayStart)
-      .lt('created_at', todayEnd)
-      .order('created_at', { ascending: false })
+      .gte('washed_at', todayStart)
+      .lt('washed_at', todayEnd)
+      .order('washed_at', { ascending: false })
 
     console.log('[WashPage] wash_logs returned:', data?.length, 'rows', error ? `error: ${error.message}` : '')
     if (data) setTodayLogs(data)
