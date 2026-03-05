@@ -37,11 +37,7 @@ export default function ProductionFormPage() {
   const scannerRef = useRef(null)
   const html5QrRef = useRef(null)
 
-  // Step 2 — Cart numbering
-  const [cartNumber, setCartNumber] = useState(1)
-  const [totalCarts, setTotalCarts] = useState(1)
-
-  // Step 3 — SKU form (hotel/limited service/specialty)
+  // Step 2 — SKU form (hotel/limited service/specialty)
   const [hotelSkus, setHotelSkus] = useState([])
   const [skuQuantities, setSkuQuantities] = useState({})
 
@@ -93,7 +89,7 @@ export default function ProductionFormPage() {
     console.log('[fetchRecentLogs] since:', since)
     const { data, error: fetchErr } = await supabase
       .from('production_logs')
-      .select('id, cart_number, total_carts, total_weight, cart_weight, linen_weight, customer_id, bin_id, created_at, customers(id, name, type, logo_url), bins(id, barcode, tare_weight)')
+      .select('id, total_weight, cart_weight, linen_weight, customer_id, bin_id, created_at, customers(id, name, type, logo_url), bins(id, barcode, tare_weight)')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
     console.log('[fetchRecentLogs] error:', fetchErr, 'data:', data)
@@ -135,8 +131,6 @@ export default function ProductionFormPage() {
         setPrintData({
           customerName: log.customers?.name || '',
           customerLogoUrl: log.customers?.logo_url,
-          cartNumber: log.cart_number,
-          totalCarts: log.total_carts,
           totalWeight: log.total_weight || 0,
           cartWeight: log.cart_weight || 0,
           linenWeight: log.linen_weight || 0,
@@ -162,8 +156,6 @@ export default function ProductionFormPage() {
     // Set customer/bin from log data
     setCustomer(log.customers)
     setBin(log.bins ? { id: log.bins.id, barcode: log.bins.barcode, tare_weight: log.bins.tare_weight, customers: log.customers } : { id: log.bin_id, customers: log.customers })
-    setCartNumber(log.cart_number || 1)
-    setTotalCarts(log.total_carts || 1)
     setTotalWeight(log.total_weight ? String(log.total_weight) : '')
     setCartWeight(log.cart_weight ? String(log.cart_weight) : (log.bins?.tare_weight ? String(log.bins.tare_weight) : ''))
     setSheetCount('')
@@ -299,8 +291,6 @@ export default function ProductionFormPage() {
       setBin(data)
       setCustomer(data.customers)
       // Reset form for new scan
-      setCartNumber(1)
-      setTotalCarts(1)
       setSkuQuantities({})
       setSheetCount('')
       setTotalWeight('')
@@ -340,8 +330,6 @@ export default function ProductionFormPage() {
       const logRow = {
         customer_id: customer.id,
         bin_id: bin.id,
-        cart_number: cartNumber,
-        total_carts: totalCarts,
         total_weight: tw,
         cart_weight: cw,
         linen_weight: lw,
@@ -407,8 +395,6 @@ export default function ProductionFormPage() {
         setPrintData({
           customerName: customer.name,
           customerLogoUrl: customer.logo_url,
-          cartNumber,
-          totalCarts,
           totalWeight: tw,
           cartWeight: cw,
           linenWeight: lw,
@@ -429,8 +415,6 @@ export default function ProductionFormPage() {
         setEditingId(null)
         setBin(null)
         setCustomer(null)
-      } else {
-        setCartNumber(prev => prev + 1)
       }
 
       // Auto-print for hotel types (new submissions only, not edits)
@@ -595,32 +579,10 @@ export default function ProductionFormPage() {
                   <span className="font-semibold">CLIENT:</span>{' '}
                   <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{customer.name}</span>
                 </p>
-                <div className="flex items-center gap-4 flex-wrap">
-                  <p className="text-base">
-                    <span className="font-semibold">DATE:</span>{' '}
-                    <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{todayFormatted()}</span>
-                  </p>
-                  <div className="flex items-center gap-1 text-base">
-                    <span className="font-semibold">CART:</span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      value={cartNumber}
-                      onChange={(e) => setCartNumber(parseInt(e.target.value, 10) || 1)}
-                      className="w-14 min-h-[40px] border-b-2 border-gray-400 text-center text-lg font-bold bg-transparent focus:outline-none focus:border-blue-500"
-                    />
-                    <span className="font-semibold">of</span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      value={totalCarts}
-                      onChange={(e) => setTotalCarts(parseInt(e.target.value, 10) || 1)}
-                      className="w-14 min-h-[40px] border-b-2 border-gray-400 text-center text-lg font-bold bg-transparent focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </div>
+                <p className="text-base">
+                  <span className="font-semibold">DATE:</span>{' '}
+                  <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{todayFormatted()}</span>
+                </p>
               </div>
             </div>
 
@@ -781,11 +743,10 @@ export default function ProductionFormPage() {
                 <thead>
                   <tr className="bg-slate-100 text-center text-base font-bold text-[#1B2541] uppercase">
                     <th className="py-2 px-1 border border-slate-200" style={{ width: '12%' }}>Time</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '20%' }}>Customer</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '12%' }}>Cart</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '12%' }}>Linen lbs</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '20%' }}>Reprint</th>
-                    <th className="py-2 px-1 border border-slate-200" style={{ width: '24%' }}>Actions</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '22%' }}>Customer</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '14%' }}>Linen lbs</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '22%' }}>Reprint</th>
+                    <th className="py-2 px-1 border border-slate-200" style={{ width: '30%' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -804,9 +765,6 @@ export default function ProductionFormPage() {
                           <div className="flex justify-center">
                             <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={80} />
                           </div>
-                        </td>
-                        <td className="py-1 px-1 border border-slate-200 text-center font-medium text-base">
-                          {log.cart_number} of {log.total_carts}
                         </td>
                         <td className="py-1 px-1 border border-slate-200 text-center font-bold text-base">
                           {log.linen_weight}
@@ -866,18 +824,10 @@ export default function ProductionFormPage() {
                 <span className="font-semibold">CLIENT:</span>{' '}
                 <span className="underline underline-offset-4">{printData.customerName}</span>
               </p>
-              <div className="flex gap-8">
-                <p>
-                  <span className="font-semibold">DATE:</span>{' '}
-                  <span className="underline underline-offset-4">{printData.date}</span>
-                </p>
-                <p>
-                  <span className="font-semibold">CART:</span>{' '}
-                  <span className="underline underline-offset-4">{printData.cartNumber}</span>
-                  {' '}of{' '}
-                  <span className="underline underline-offset-4">{printData.totalCarts}</span>
-                </p>
-              </div>
+              <p>
+                <span className="font-semibold">DATE:</span>{' '}
+                <span className="underline underline-offset-4">{printData.date}</span>
+              </p>
             </div>
 
             {/* SKU table — exact replica of physical form */}
