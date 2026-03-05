@@ -469,20 +469,31 @@ export default function ProductionFormPage() {
     isWellness ? sheetCount !== '' : true
   )
 
+  /* ── Look up Spanish translation from PRINT_SKUS by name ── */
+  function getSpanish(name) {
+    for (const cat of CATEGORY_ORDER) {
+      const item = PRINT_SKUS[cat]?.find(s => s.name === name)
+      if (item) return item.name_es
+    }
+    return null
+  }
+
   /* ── Renders a SKU table row (2 items side by side) ── */
   function renderSkuRow(pair, idx) {
     const left = pair[0]
     const right = pair[1]
+    const leftEs = left.name_es || getSpanish(left.name)
+    const rightEs = right ? (right.name_es || getSpanish(right.name)) : null
     return (
       <tr key={idx}>
         {/* Left item name */}
-        <td className={`${cellBorder} ${cellPad} align-top`}>
+        <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
           <span className="text-sm font-medium">{left.name}</span>
-          {left.name_es && <br />}
-          {left.name_es && <span className="text-xs italic text-gray-500">{left.name_es}</span>}
+          {leftEs && <br />}
+          {leftEs && <span className="text-xs italic text-gray-500">{leftEs}</span>}
         </td>
         {/* Left count input */}
-        <td className={`${cellBorder} p-1 align-middle w-16`}>
+        <td className={`${cellBorder} p-1 text-center align-middle w-16`}>
           <input
             type="number"
             inputMode="numeric"
@@ -495,17 +506,17 @@ export default function ProductionFormPage() {
         </td>
         {/* Right item name (or shaded empty cell) */}
         {right ? (
-          <td className={`${cellBorder} ${cellPad} align-top`}>
+          <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
             <span className="text-sm font-medium">{right.name}</span>
-            {right.name_es && <br />}
-            {right.name_es && <span className="text-xs italic text-gray-500">{right.name_es}</span>}
+            {rightEs && <br />}
+            {rightEs && <span className="text-xs italic text-gray-500">{rightEs}</span>}
           </td>
         ) : (
           <td className={`${cellBorder} bg-gray-200`} />
         )}
         {/* Right count input (or shaded empty cell) */}
         {right ? (
-          <td className={`${cellBorder} p-1 align-middle w-16`}>
+          <td className={`${cellBorder} p-1 text-center align-middle w-16`}>
             <input
               type="number"
               inputMode="numeric"
