@@ -4,10 +4,10 @@ import { supabase } from '../lib/supabase'
 import CustomerLogo from '../components/CustomerLogo'
 
 function washerIconSize(capacity) {
-  if (capacity >= 200) return 64
-  if (capacity >= 100) return 48
-  if (capacity >= 80) return 42
-  return 36
+  if (capacity >= 200) return 150
+  if (capacity >= 100) return 112
+  if (capacity >= 80) return 98
+  return 84
 }
 
 function utilizationIconColor(pct) {
@@ -171,9 +171,9 @@ export default function WashInfoPage() {
               <div className="flex justify-center">
                 <WashingMachine size={washerIconSize(w.capacity)} className={utilizationIconColor(w.pct)} />
               </div>
-              <p className="text-xs font-bold leading-tight mt-0.5">{w.name}</p>
-              <p className="text-[10px] font-medium leading-tight">{w.loads}L &middot; {w.lbs}lb</p>
-              <p className="text-[10px] font-medium leading-tight">{w.pct}%</p>
+              <p className="text-lg font-bold leading-tight mt-0.5">{w.name}</p>
+              <p className="text-[15px] font-medium leading-tight">{w.loads}L &middot; {w.lbs}lb</p>
+              <p className="text-[15px] font-medium leading-tight">{w.pct}%</p>
             </div>
           ))}
         </div>
