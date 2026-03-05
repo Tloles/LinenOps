@@ -233,6 +233,7 @@ export default function ScanPage() {
       // Single update call for bin — always set current_status, include size when provided
       const binUpdate = { current_status: newStatus }
       if (binSize) binUpdate.size = binSize
+      if (newStatus === 'delivered') binUpdate.size = null
 
       console.log('[handleStatusUpdate] bin update payload:', JSON.stringify(binUpdate), 'bin.id:', bin.id)
       const { error: updateErr } = await supabase
