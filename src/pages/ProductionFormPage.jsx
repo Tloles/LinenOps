@@ -6,6 +6,33 @@ import CustomerLogo from '../components/CustomerLogo'
 
 const CATEGORY_ORDER = ['Flatwork', 'Towels', 'Special Items']
 
+const PRINT_SKUS = {
+  Flatwork: [
+    { name: 'Duvet – King Size', name_es: 'Funda de Edredón– Rey Talla' },
+    { name: 'Duvet – Queen Size', name_es: 'Funda de Edredón– Reina Talla' },
+    { name: 'Flat Sheet – King Size', name_es: 'Sábana plana – Rey Talla' },
+    { name: 'Flat Sheet – Queen Size', name_es: 'Sábana plana – Reina Talla' },
+    { name: 'Pillow Case – King Size', name_es: 'Funda de almohada – Rey Talla' },
+    { name: 'Pillow Case – Queen Size', name_es: 'Funda de almohada – Reina Talla' },
+    { name: 'Fitted Sheet', name_es: 'Sábana elástico' },
+  ],
+  Towels: [
+    { name: 'Bath Towel', name_es: 'Toalla de baño' },
+    { name: 'Hand Towel', name_es: 'Toalla de mano' },
+    { name: 'Wash Cloth', name_es: 'Toalla de lavado' },
+    { name: 'Bath Mat', name_es: 'Alfombra de baño' },
+    { name: 'Pool Towel', name_es: 'Toalla de piscina' },
+  ],
+  'Special Items': [
+    { name: 'Comforter', name_es: 'Edredón' },
+    { name: 'Shower Curtain', name_es: 'Cortina de la ducha' },
+    { name: 'Pillow', name_es: 'Almohada' },
+    { name: 'Blanket', name_es: 'Cobjia' },
+    { name: 'Robe', name_es: 'Bata' },
+    { name: 'Bed Skirt', name_es: 'Faldón' },
+  ],
+}
+
 function chunkPairs(arr) {
   const pairs = []
   for (let i = 0; i < arr.length; i += 2) {
@@ -810,10 +837,12 @@ export default function ProductionFormPage() {
       {printData && (
         <div className="print-only p-4">
           <div className="max-w-2xl mx-auto">
-            {/* Logo centered */}
-            <div className="text-center mb-2">
-              <img src="/header-logo.png" alt="White Sail Linen" className="h-20 mx-auto" />
-            </div>
+            {/* Customer logo centered */}
+            {printData.customerLogoUrl && (
+              <div className="text-center mb-2">
+                <img src={printData.customerLogoUrl} alt={printData.customerName} className="mx-auto" style={{ maxHeight: 100, maxWidth: 250 }} />
+              </div>
+            )}
 
             {/* Title */}
             <h1 className="text-2xl text-center mb-3">Hotel Linen Cart Sheet</h1>
@@ -834,8 +863,17 @@ export default function ProductionFormPage() {
             <table className="w-full border-collapse border border-black text-sm">
               <tbody>
                 {CATEGORY_ORDER.map(category => {
-                  const pairs = printData.skuPairs[category]
-                  if (!pairs || pairs.length === 0) return null
+                  const items = PRINT_SKUS[category]
+                  if (!items || items.length === 0) return null
+                  // Build a name→quantity map from printData
+                  const qtyMap = {}
+                  const dataPairs = printData.skuPairs[category] || []
+                  for (const pair of dataPairs) {
+                    for (const item of pair) {
+                      if (item && item.quantity) qtyMap[item.name] = item.quantity
+                    }
+                  }
+                  const pairs = chunkPairs(items)
                   return [
                     /* Category header */
                     <tr key={`print-hdr-${category}`}>
@@ -850,29 +888,21 @@ export default function ProductionFormPage() {
                       return (
                         <tr key={`print-${category}-${idx}`}>
                           {/* Left name */}
-                          <td className="border border-black px-2 py-1 align-top">
-                            <span className="font-medium">{left?.name}</span>
-                            {left?.name_es && (
-                              <>
-                                <br />
-                                <span className="italic text-xs">{left.name_es}</span>
-                              </>
-                            )}
+                          <td className="border border-black px-2 py-1 text-center align-middle">
+                            <span className="font-medium">{left.name}</span>
+                            <br />
+                            <span className="italic text-xs">{left.name_es}</span>
                           </td>
                           {/* Left count */}
                           <td className="border border-black px-2 py-1 text-center align-middle w-14 text-base font-bold">
-                            {left?.quantity ? left.quantity : ''}
+                            {qtyMap[left.name] || ''}
                           </td>
                           {/* Right name or shaded */}
                           {right ? (
-                            <td className="border border-black px-2 py-1 align-top">
+                            <td className="border border-black px-2 py-1 text-center align-middle">
                               <span className="font-medium">{right.name}</span>
-                              {right.name_es && (
-                                <>
-                                  <br />
-                                  <span className="italic text-xs">{right.name_es}</span>
-                                </>
-                              )}
+                              <br />
+                              <span className="italic text-xs">{right.name_es}</span>
                             </td>
                           ) : (
                             <td className="border border-black bg-gray-300" />
@@ -880,7 +910,7 @@ export default function ProductionFormPage() {
                           {/* Right count or shaded */}
                           {right ? (
                             <td className="border border-black px-2 py-1 text-center align-middle w-14 text-base font-bold">
-                              {right.quantity ? right.quantity : ''}
+                              {qtyMap[right.name] || ''}
                             </td>
                           ) : (
                             <td className="border border-black bg-gray-300 w-14" />
