@@ -148,7 +148,7 @@ export default function WashPage() {
         {/* Customer Grid */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Customer</label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             {customers.map((c) => (
               <button
                 key={c.id}
