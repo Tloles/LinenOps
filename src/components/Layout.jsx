@@ -28,7 +28,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
-      <header className="bg-[#1B2541] px-4 py-3 flex items-center justify-between">
+      <header className="bg-[#1B2541] px-4 py-3 flex items-center justify-between no-print">
         <div className="flex items-center gap-3">
           <img src="/header-logo.png" alt="White Sail" className="h-[100px] w-auto" />
           <h1 className="text-xl font-bold text-white tracking-wide">White Sail</h1>
@@ -48,7 +48,7 @@ export default function Layout() {
         </div>
       </header>
 
-      <nav className="bg-white border-b border-gray-200 px-4 flex gap-1 overflow-x-auto">
+      <nav className="bg-white border-b border-gray-200 px-4 flex gap-1 overflow-x-auto no-print">
         {role === 'owner' && <NavTab to="/dashboard">Dashboard</NavTab>}
         <NavTab to="/scan">Scan</NavTab>
         {role !== 'driver' && <NavTab to="/bins">Bins</NavTab>}

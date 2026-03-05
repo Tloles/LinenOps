@@ -348,7 +348,7 @@ export default function ProductionFormPage() {
   return (
     <>
       {/* ════════════ SCREEN FORM ════════════ */}
-      <div className="space-y-4 print:hidden">
+      <div className="space-y-4 no-print">
         <h2 className="text-lg font-semibold text-gray-900">Production Form</h2>
 
         {success && (
@@ -599,7 +599,7 @@ export default function ProductionFormPage() {
 
       {/* ════════════ PRINT LAYOUT ════════════ */}
       {printData && (
-        <div className="hidden print:block p-4">
+        <div className="print-only p-4">
           <div className="max-w-2xl mx-auto">
             {/* Logo centered */}
             <div className="text-center mb-2">
@@ -643,38 +643,50 @@ export default function ProductionFormPage() {
                       </td>
                     </tr>,
                     /* Paired rows */
-                    ...pairs.map((pair, idx) => (
-                      <tr key={`print-${category}-${idx}`}>
-                        {/* Left name */}
-                        <td className="border border-black px-2 py-1 align-top">
-                          <span className="font-medium">{pair[0]?.name}</span>
-                          {pair[0]?.name_es && <br />}
-                          {pair[0]?.name_es && <span className="italic text-gray-600 text-xs">{pair[0].name_es}</span>}
-                        </td>
-                        {/* Left count */}
-                        <td className="border border-black px-2 py-1 text-center align-middle w-12 font-bold">
-                          {pair[0]?.quantity > 0 ? pair[0].quantity : ''}
-                        </td>
-                        {/* Right name or shaded */}
-                        {pair[1] ? (
+                    ...pairs.map((pair, idx) => {
+                      const left = pair[0]
+                      const right = pair[1]
+                      return (
+                        <tr key={`print-${category}-${idx}`}>
+                          {/* Left name */}
                           <td className="border border-black px-2 py-1 align-top">
-                            <span className="font-medium">{pair[1].name}</span>
-                            {pair[1].name_es && <br />}
-                            {pair[1].name_es && <span className="italic text-gray-600 text-xs">{pair[1].name_es}</span>}
+                            <span className="font-medium">{left?.name}</span>
+                            {left?.name_es && (
+                              <>
+                                <br />
+                                <span className="italic text-xs">{left.name_es}</span>
+                              </>
+                            )}
                           </td>
-                        ) : (
-                          <td className="border border-black bg-gray-300" />
-                        )}
-                        {/* Right count or shaded */}
-                        {pair[1] ? (
-                          <td className="border border-black px-2 py-1 text-center align-middle w-12 font-bold">
-                            {pair[1].quantity > 0 ? pair[1].quantity : ''}
+                          {/* Left count */}
+                          <td className="border border-black px-2 py-1 text-center align-middle w-14 text-base font-bold">
+                            {left?.quantity ? left.quantity : ''}
                           </td>
-                        ) : (
-                          <td className="border border-black bg-gray-300 w-12" />
-                        )}
-                      </tr>
-                    ))
+                          {/* Right name or shaded */}
+                          {right ? (
+                            <td className="border border-black px-2 py-1 align-top">
+                              <span className="font-medium">{right.name}</span>
+                              {right.name_es && (
+                                <>
+                                  <br />
+                                  <span className="italic text-xs">{right.name_es}</span>
+                                </>
+                              )}
+                            </td>
+                          ) : (
+                            <td className="border border-black bg-gray-300" />
+                          )}
+                          {/* Right count or shaded */}
+                          {right ? (
+                            <td className="border border-black px-2 py-1 text-center align-middle w-14 text-base font-bold">
+                              {right.quantity ? right.quantity : ''}
+                            </td>
+                          ) : (
+                            <td className="border border-black bg-gray-300 w-14" />
+                          )}
+                        </tr>
+                      )
+                    })
                   ]
                 })}
 

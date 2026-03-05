@@ -1,10 +1,22 @@
 @import "tailwindcss";
 
+.print-only {
+  display: none;
+}
+
 @media print {
-  header, nav {
+  header, nav, .no-print {
     display: none !important;
+  }
+  .print-only {
+    display: block !important;
   }
   body {
     background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  @page {
+    margin: 0.5in;
   }
 }
