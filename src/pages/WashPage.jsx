@@ -235,14 +235,6 @@ export default function WashPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse" style={{ tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: 70 }} />
-                <col style={{ width: 30 }} />
-                <col style={{ width: 140 }} />
-                <col style={{ width: 80 }} />
-                <col style={{ width: 60 }} />
-                <col />
-              </colgroup>
               <thead>
                 <tr className="bg-slate-100 text-left text-xs font-bold text-[#1B2541] uppercase">
                   <th className="py-2 px-1 border border-slate-200">Time</th>
