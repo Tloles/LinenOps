@@ -16,6 +16,9 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+  .print-only td, .print-only th {
+    background-color: white !important;
+  }
   @page {
     margin: 0.5in;
   }
