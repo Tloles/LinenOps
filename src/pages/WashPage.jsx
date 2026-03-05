@@ -139,7 +139,7 @@ export default function WashPage() {
               >
                 <WashingMachine size={WASHER_ICON_SIZE} />
                 <span>{w.name}</span>
-                <span className="text-xs opacity-80">{w.capacity} lbs</span>
+                <span className="text-xs opacity-80">{w.capacity_lbs || w.capacity} lbs</span>
               </button>
             ))}
           </div>

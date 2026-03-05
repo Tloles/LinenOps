@@ -64,7 +64,7 @@ export default function WashInfoPage() {
 
     let query = supabase
       .from('wash_logs')
-      .select('id, weight_lbs, washer_id, customer_id, wash_cycle_id, created_at, customers(id, name, logo_url), washers(id, name, capacity), wash_cycles(id, name)')
+      .select('id, weight_lbs, washer_id, customer_id, wash_cycle_id, created_at, customers(id, name, logo_url), washers(id, name, capacity, capacity_lbs), wash_cycles(id, name)')
       .gte('created_at', rangeStart.toISOString())
       .lt('created_at', rangeEnd.toISOString())
       .order('created_at', { ascending: false })
@@ -112,7 +112,8 @@ export default function WashInfoPage() {
     const loads = wLogs.length
     const lbs = wLogs.reduce((s, l) => s + Number(l.weight_lbs), 0)
     // Utilization = total lbs / capacity (one load worth). Higher = more loads run.
-    const pct = w.capacity > 0 ? Math.round((lbs / w.capacity) * 100) : 0
+    const cap = w.capacity_lbs || w.capacity || 0
+    const pct = cap > 0 ? Math.round((lbs / cap) * 100) : 0
     return { ...w, loads, lbs, pct }
   })
 
