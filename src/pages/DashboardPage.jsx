@@ -1,79 +1,74 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { SCAN_STATUSES, statusLabel } from '../lib/constants'
-
-const DASHBOARD_LABELS = {
-  received_at_plant: 'Soiled Bins',
-}
-
-function dashLabel(status) {
-  return DASHBOARD_LABELS[status] || statusLabel(status)
-}
-import CustomerLogo from '../components/CustomerLogo'
-
-function groupByCustomer(bins, statuses) {
-  const map = {}
-  for (const bin of bins) {
-    if (!statuses.includes(bin.current_status)) continue
-    const cust = bin.customers
-    if (!cust) continue
-    if (!map[cust.id]) map[cust.id] = { ...cust, count: 0 }
-    map[cust.id].count++
-  }
-  return Object.values(map).sort((a, b) => a.name.localeCompare(b.name))
-}
-
-function CustomerGrid({ customers }) {
-  if (customers.length === 0) {
-    return <div className="text-sm text-gray-400 mt-1">None</div>
-  }
-  return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
-      {customers.map((cust) => (
-        <div key={cust.id} className="flex flex-col items-center">
-          <CustomerLogo url={cust.logo_url} name={cust.name} size={200} />
-          <div className="text-2xl font-bold text-[#1B2541] -mt-1">{cust.count}</div>
-        </div>
-      ))}
-    </div>
-  )
-}
+import { SCAN_STATUSES } from '../lib/constants'
+import { dashLabel, groupByCustomer, groupBinsByCustomer } from '../lib/binUtils'
+import CustomerGrid from '../components/CustomerGrid'
 
 export default function DashboardPage() {
   const [bins, setBins] = useState([])
+  const [trucks, setTrucks] = useState([])
+  const [binTruckMap, setBinTruckMap] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [washedTodayLbs, setWashedTodayLbs] = useState(0)
 
   useEffect(() => {
-    async function fetchBins() {
-      const { data, error } = await supabase
-        .from('bins')
-        .select('id, current_status, customer_id, customers(id, name, logo_url)')
-        .is('retired_at', null)
+    async function fetchData() {
+      const [binsRes, trucksRes, washRes] = await Promise.all([
+        supabase
+          .from('bins')
+          .select('id, current_status, customer_id, customers(id, name, logo_url)')
+          .is('retired_at', null),
+        supabase
+          .from('trucks')
+          .select('id, name')
+          .order('name'),
+        supabase
+          .from('wash_logs')
+          .select('weight_lbs')
+          .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
+      ])
 
-      if (error) {
-        setError(error.message)
-      } else {
-        setBins(data)
+      if (binsRes.error) {
+        setError(binsRes.error.message)
+        setLoading(false)
+        return
       }
+
+      const binsData = binsRes.data || []
+      setBins(binsData)
+      setTrucks(trucksRes.data || [])
+      if (washRes.data) {
+        setWashedTodayLbs(washRes.data.reduce((s, r) => s + Number(r.weight_lbs), 0))
+      }
+
+      // Build bin→truck map from latest loaded scan events
+      const onTruckIds = binsData
+        .filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled')
+        .map(b => b.id)
+
+      if (onTruckIds.length > 0) {
+        const { data: scanEvents } = await supabase
+          .from('scan_events')
+          .select('bin_id, truck_id')
+          .in('bin_id', onTruckIds)
+          .eq('status', 'loaded')
+          .not('truck_id', 'is', null)
+          .order('scanned_at', { ascending: false })
+
+        if (scanEvents) {
+          const map = {}
+          for (const ev of scanEvents) {
+            if (!map[ev.bin_id]) map[ev.bin_id] = ev.truck_id
+          }
+          setBinTruckMap(map)
+        }
+      }
+
       setLoading(false)
     }
 
-    async function fetchWashedToday() {
-      const todayStart = new Date()
-      todayStart.setHours(0, 0, 0, 0)
-      const { data } = await supabase
-        .from('wash_logs')
-        .select('weight_lbs')
-        .gte('created_at', todayStart.toISOString())
-      if (data) {
-        setWashedTodayLbs(data.reduce((s, r) => s + Number(r.weight_lbs), 0))
-      }
-    }
-
-    fetchBins()
-    fetchWashedToday()
+    fetchData()
   }, [])
 
   if (loading) {
@@ -90,11 +85,10 @@ export default function DashboardPage() {
   const inProcessBins = groupByCustomer(bins, ['in_process'])
   const inProcessTotal = inProcessBins.reduce((s, c) => s + c.count, 0)
 
-  // By Location (At Plant + On Truck only)
+  // By Location (At Plant + per-truck)
   const atPlantBins = groupByCustomer(bins, ['clean_staged', 'received_at_plant', 'in_process'])
   const atPlantTotal = atPlantBins.reduce((s, c) => s + c.count, 0)
-  const onTruckBins = groupByCustomer(bins, ['loaded', 'picked_up_soiled'])
-  const onTruckTotal = onTruckBins.reduce((s, c) => s + c.count, 0)
+  const onTruckStatusBins = bins.filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled')
   const lost = bins.filter((b) => b.current_status === 'lost').length
 
   // By Status — each active status with customer breakdown
@@ -132,10 +126,18 @@ export default function DashboardPage() {
             <p className="text-4xl font-bold text-[#1B2541]">{atPlantTotal} <span className="text-slate-500">At Plant</span></p>
             <CustomerGrid customers={atPlantBins} />
           </div>
-          <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-            <p className="text-4xl font-bold text-[#1B2541]">{onTruckTotal} <span className="text-slate-500">On Truck</span></p>
-            <CustomerGrid customers={onTruckBins} />
-          </div>
+          {trucks.map(truck => {
+            const truckBins = onTruckStatusBins.filter(b => binTruckMap[b.id] === truck.id)
+            const customers = groupBinsByCustomer(truckBins)
+            const total = customers.reduce((s, c) => s + c.count, 0)
+            if (total === 0) return null
+            return (
+              <div key={truck.id} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+                <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{truck.name}</span></p>
+                <CustomerGrid customers={customers} />
+              </div>
+            )
+          })}
         </div>
         {lost > 0 && (
           <div className="mt-2 text-center text-sm font-medium text-rose-600">

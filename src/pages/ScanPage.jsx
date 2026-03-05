@@ -3,10 +3,12 @@ import { Html5Qrcode } from 'html5-qrcode'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { STATUS_COLORS, statusLabel, NEXT_STATUS, SCAN_STATUSES } from '../lib/constants'
+import { dashLabel, groupByCustomer, groupBinsByCustomer } from '../lib/binUtils'
 import CustomerLogo from '../components/CustomerLogo'
+import CustomerGrid from '../components/CustomerGrid'
 
 export default function ScanPage() {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
   const [scanning, setScanning] = useState(false)
   const [manualBarcode, setManualBarcode] = useState('')
   const [bin, setBin] = useState(null)
@@ -14,8 +16,80 @@ export default function ScanPage() {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [updating, setUpdating] = useState(false)
+  const [summaryBins, setSummaryBins] = useState([])
+  const [trucks, setTrucks] = useState([])
+  const [pendingStatus, setPendingStatus] = useState(null)
+  const [selectedTruckId, setSelectedTruckId] = useState(null)
+  const [binTruckMap, setBinTruckMap] = useState({})
   const scannerRef = useRef(null)
   const html5QrRef = useRef(null)
+
+  const fetchSummaryBins = useCallback(async () => {
+    const { data } = await supabase
+      .from('bins')
+      .select('id, current_status, customer_id, customers(id, name, logo_url)')
+      .is('retired_at', null)
+    if (data) setSummaryBins(data)
+  }, [])
+
+  const fetchTruckData = useCallback(async (binsData) => {
+    // Fetch trucks
+    const { data: truckRows } = await supabase
+      .from('trucks')
+      .select('id, name')
+      .order('name')
+    if (truckRows) setTrucks(truckRows)
+
+    // Build bin→truck map from latest loaded scan events
+    const onTruckIds = binsData
+      .filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled')
+      .map(b => b.id)
+
+    if (onTruckIds.length > 0) {
+      const { data: scanEvents } = await supabase
+        .from('scan_events')
+        .select('bin_id, truck_id')
+        .in('bin_id', onTruckIds)
+        .eq('status', 'loaded')
+        .not('truck_id', 'is', null)
+        .order('scanned_at', { ascending: false })
+
+      if (scanEvents) {
+        const map = {}
+        for (const ev of scanEvents) {
+          if (!map[ev.bin_id]) map[ev.bin_id] = ev.truck_id
+        }
+        setBinTruckMap(map)
+      }
+    } else {
+      setBinTruckMap({})
+    }
+  }, [])
+
+  useEffect(() => {
+    async function init() {
+      const { data } = await supabase
+        .from('bins')
+        .select('id, current_status, customer_id, customers(id, name, logo_url)')
+        .is('retired_at', null)
+      if (data) {
+        setSummaryBins(data)
+        fetchTruckData(data)
+      }
+    }
+    init()
+  }, [fetchTruckData])
+
+  const refreshAll = useCallback(async () => {
+    const { data } = await supabase
+      .from('bins')
+      .select('id, current_status, customer_id, customers(id, name, logo_url)')
+      .is('retired_at', null)
+    if (data) {
+      setSummaryBins(data)
+      fetchTruckData(data)
+    }
+  }, [fetchTruckData])
 
   const stopScanner = useCallback(async () => {
     if (html5QrRef.current) {
@@ -41,6 +115,7 @@ export default function ScanPage() {
     setError(null)
     setBin(null)
     setSuccess(null)
+    setPendingStatus(null)
 
     const html5Qr = new Html5Qrcode('scanner-region')
     html5QrRef.current = html5Qr
@@ -71,6 +146,7 @@ export default function ScanPage() {
     setSuccess(null)
     setBin(null)
     setLookingUp(true)
+    setPendingStatus(null)
 
     try {
       const { data, error: fetchError } = await supabase
@@ -102,25 +178,39 @@ export default function ScanPage() {
     setManualBarcode('')
   }
 
-  async function handleStatusUpdate(newStatus) {
+  function handleStatusTap(status) {
+    if (status === 'loaded') {
+      setPendingStatus('loaded')
+    } else {
+      handleStatusUpdate(status)
+    }
+  }
+
+  async function handleStatusUpdate(newStatus, truckId = null) {
     if (!bin) return
     setUpdating(true)
     setError(null)
 
     try {
       // Try the record_scan RPC first
-      const { error: rpcError } = await supabase.rpc('record_scan', {
+      const rpcParams = {
         p_bin_id: bin.id,
         p_status: newStatus,
         p_scanned_by: user.id,
-      })
+      }
+      if (truckId) rpcParams.p_truck_id = truckId
+
+      const { error: rpcError } = await supabase.rpc('record_scan', rpcParams)
 
       if (rpcError) {
         // Fallback: direct insert + update if RPC doesn't exist
         if (rpcError.message.includes('record_scan') || rpcError.code === '42883') {
+          const insertRow = { bin_id: bin.id, status: newStatus, scanned_by: user.id }
+          if (truckId) insertRow.truck_id = truckId
+
           const { error: insertErr } = await supabase
             .from('scan_events')
-            .insert({ bin_id: bin.id, status: newStatus, scanned_by: user.id })
+            .insert(insertRow)
           if (insertErr) throw insertErr
 
           const { error: updateErr } = await supabase
@@ -135,6 +225,9 @@ export default function ScanPage() {
 
       setSuccess(`"${bin.barcode}" updated to ${statusLabel(newStatus)}`)
       setBin(null)
+      setPendingStatus(null)
+      setSelectedTruckId(null)
+      refreshAll()
     } catch (err) {
       setError(err.message)
     } finally {
@@ -146,9 +239,27 @@ export default function ScanPage() {
     setBin(null)
     setSuccess(null)
     setError(null)
+    setPendingStatus(null)
+    setSelectedTruckId(null)
   }
 
   const suggestedStatus = bin ? NEXT_STATUS[bin.current_status] : null
+
+  // Summary data
+  const showLocation = role === 'driver' || role === 'owner'
+  const showStatus = role === 'production' || role === 'owner'
+
+  const atPlantBins = showLocation ? groupByCustomer(summaryBins, ['clean_staged', 'received_at_plant', 'in_process']) : []
+  const atPlantTotal = atPlantBins.reduce((s, c) => s + c.count, 0)
+  const onTruckStatusBins = showLocation ? summaryBins.filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled') : []
+
+  const byStatus = showStatus
+    ? SCAN_STATUSES.map((status) => {
+        const customers = groupByCustomer(summaryBins, [status])
+        const total = customers.reduce((s, c) => s + c.count, 0)
+        return { status, total, customers }
+      }).filter((s) => s.total > 0)
+    : []
 
   return (
     <div className="space-y-4">
@@ -248,15 +359,40 @@ export default function ScanPage() {
             )}
           </div>
 
-          {/* Status update buttons */}
-          {bin.current_status !== 'lost' && bin.current_status !== 'retired' ? (
+          {/* Truck selector — shown when pending loaded status */}
+          {pendingStatus === 'loaded' && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700">Select truck:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {trucks.map(truck => (
+                  <button
+                    key={truck.id}
+                    onClick={() => handleStatusUpdate('loaded', truck.id)}
+                    disabled={updating}
+                    className="w-full min-h-[72px] text-xl font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700"
+                  >
+                    {updating ? 'Updating...' : truck.name}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setPendingStatus(null)}
+                className="w-full min-h-[48px] text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {/* Status update buttons — hidden when truck selector is showing */}
+          {!pendingStatus && bin.current_status !== 'lost' && bin.current_status !== 'retired' ? (
             <div className="space-y-3">
               <p className="text-sm font-medium text-gray-700">Update status to:</p>
 
               {/* Suggested next status — large primary button */}
               {suggestedStatus && (
                 <button
-                  onClick={() => handleStatusUpdate(suggestedStatus)}
+                  onClick={() => handleStatusTap(suggestedStatus)}
                   disabled={updating}
                   className="w-full min-h-[72px] text-xl font-bold rounded-xl capitalize disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800"
                 >
@@ -271,7 +407,7 @@ export default function ScanPage() {
                 ).map((status) => (
                   <button
                     key={status}
-                    onClick={() => handleStatusUpdate(status)}
+                    onClick={() => handleStatusTap(status)}
                     disabled={updating}
                     className="min-h-[56px] px-3 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 active:bg-gray-100 capitalize disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -280,19 +416,64 @@ export default function ScanPage() {
                 ))}
               </div>
             </div>
-          ) : (
+          ) : !pendingStatus && (bin.current_status === 'lost' || bin.current_status === 'retired') ? (
             <div className="p-4 rounded-lg bg-gray-50 text-gray-600 text-center">
               This bin is {statusLabel(bin.current_status)} and cannot be scanned.
             </div>
-          )}
+          ) : null}
 
           {/* Scan another */}
-          <button
-            onClick={resetScan}
-            className="w-full min-h-[48px] text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-          >
-            Scan Another Bin
-          </button>
+          {!pendingStatus && (
+            <button
+              onClick={resetScan}
+              className="w-full min-h-[48px] text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            >
+              Scan Another Bin
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Role-based summary sections */}
+      {showLocation && (
+        <div className="bg-white rounded-lg border border-gray-200 p-3">
+          <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Location</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+              <p className="text-4xl font-bold text-[#1B2541]">{atPlantTotal} <span className="text-slate-500">At Plant</span></p>
+              <CustomerGrid customers={atPlantBins} />
+            </div>
+            {trucks.map(truck => {
+              const truckBins = onTruckStatusBins.filter(b => binTruckMap[b.id] === truck.id)
+              const customers = groupBinsByCustomer(truckBins)
+              const total = customers.reduce((s, c) => s + c.count, 0)
+              if (total === 0) return null
+              return (
+                <div key={truck.id} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+                  <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{truck.name}</span></p>
+                  <CustomerGrid customers={customers} />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {showStatus && (
+        <div className="bg-white rounded-lg border border-gray-200 p-3">
+          <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Status</h3>
+          {byStatus.length === 0 ? (
+            <p className="text-gray-400 text-sm">No active bins.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {byStatus.map(({ status, total, customers }) => (
+                <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+                  <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500 capitalize">{dashLabel(status)}</span></p>
+                  <CustomerGrid customers={customers} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -69,7 +69,8 @@ CREATE OR REPLACE FUNCTION public.record_scan(
   p_bin_id uuid,
   p_status text,
   p_scanned_by uuid DEFAULT NULL,
-  p_notes text DEFAULT NULL
+  p_notes text DEFAULT NULL,
+  p_truck_id uuid DEFAULT NULL
 )
 RETURNS json
 LANGUAGE plpgsql
@@ -79,8 +80,8 @@ DECLARE
   v_event scan_events;
 BEGIN
   -- Insert the scan event
-  INSERT INTO public.scan_events (bin_id, status, scanned_by, notes)
-  VALUES (p_bin_id, p_status, COALESCE(p_scanned_by, auth.uid()), p_notes)
+  INSERT INTO public.scan_events (bin_id, status, scanned_by, notes, truck_id)
+  VALUES (p_bin_id, p_status, COALESCE(p_scanned_by, auth.uid()), p_notes, p_truck_id)
   RETURNING * INTO v_event;
 
   -- Update the bin's current status

@@ -68,6 +68,16 @@ CREATE TABLE bins (
 );
 
 -- ============================================
+-- TRUCKS
+-- ============================================
+
+CREATE TABLE trucks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ============================================
 -- SCAN EVENTS (append-only log)
 -- ============================================
 
@@ -77,7 +87,8 @@ CREATE TABLE scan_events (
   status bin_status NOT NULL,
   scanned_by UUID NOT NULL REFERENCES auth.users(id),
   scanned_at TIMESTAMPTZ DEFAULT NOW(),
-  notes TEXT
+  notes TEXT,
+  truck_id UUID REFERENCES trucks(id)
 );
 
 -- ============================================
@@ -210,6 +221,9 @@ CREATE INDEX idx_route_progress_date ON route_progress(date);
 
 -- Wash logs by date (for today's summary)
 CREATE INDEX idx_wash_logs_created_at ON wash_logs(created_at DESC);
+
+-- Scan events by truck
+CREATE INDEX idx_scan_events_truck ON scan_events(truck_id) WHERE truck_id IS NOT NULL;
 
 -- ============================================
 -- ROW LEVEL SECURITY POLICIES
@@ -381,6 +395,14 @@ CREATE POLICY "Non-drivers can insert wash logs"
 -- For status updates via scanning, we'll use a function (see below)
 -- so drivers and production staff don't need direct UPDATE on bins
 
+-- Trucks
+ALTER TABLE trucks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read trucks"
+  ON trucks FOR SELECT
+  TO authenticated
+  USING (true);
+
 -- Scan Events
 ALTER TABLE scan_events ENABLE ROW LEVEL SECURITY;
 
@@ -404,7 +426,8 @@ CREATE POLICY "Authenticated users can insert scan events"
 CREATE OR REPLACE FUNCTION record_scan(
   p_bin_id UUID,
   p_status bin_status,
-  p_notes TEXT DEFAULT NULL
+  p_notes TEXT DEFAULT NULL,
+  p_truck_id UUID DEFAULT NULL
 )
 RETURNS UUID
 LANGUAGE plpgsql
@@ -414,8 +437,8 @@ DECLARE
   v_event_id UUID;
 BEGIN
   -- Insert the scan event
-  INSERT INTO scan_events (bin_id, status, scanned_by, notes)
-  VALUES (p_bin_id, p_status, auth.uid(), p_notes)
+  INSERT INTO scan_events (bin_id, status, scanned_by, notes, truck_id)
+  VALUES (p_bin_id, p_status, auth.uid(), p_notes, p_truck_id)
   RETURNING id INTO v_event_id;
 
   -- Update the bin's current status
