@@ -6,6 +6,23 @@ import CustomerLogo from '../components/CustomerLogo'
 
 const CATEGORY_ORDER = ['Flatwork', 'Towels', 'Special Items']
 
+function chunkPairs(arr) {
+  const pairs = []
+  for (let i = 0; i < arr.length; i += 2) {
+    pairs.push([arr[i], arr[i + 1] || null])
+  }
+  return pairs
+}
+
+function todayFormatted() {
+  const d = new Date()
+  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`
+}
+
+/* Shared table cell styles */
+const cellBorder = 'border border-gray-400'
+const cellPad = 'px-2 py-2'
+
 export default function ProductionFormPage() {
   const { user } = useAuth()
 
@@ -63,11 +80,11 @@ export default function ProductionFormPage() {
     fetchSkus()
   }, [])
 
-  // Group SKUs by category
-  const skusByCategory = useMemo(() => {
+  // Group SKUs by category, then chunk into pairs
+  const skuPairsByCategory = useMemo(() => {
     const groups = {}
     for (const cat of CATEGORY_ORDER) {
-      groups[cat] = hotelSkus.filter(s => s.category === cat)
+      groups[cat] = chunkPairs(hotelSkus.filter(s => s.category === cat))
     }
     return groups
   }, [hotelSkus])
@@ -166,10 +183,6 @@ export default function ProductionFormPage() {
     setSkuQuantities(prev => ({ ...prev, [skuId]: isNaN(num) ? '' : num }))
   }
 
-  function incrementSku(skuId) {
-    setSkuQuantities(prev => ({ ...prev, [skuId]: (prev[skuId] || 0) + 1 }))
-  }
-
   // Submit
   async function handleSubmit() {
     if (!bin || !customer) return
@@ -224,9 +237,12 @@ export default function ProductionFormPage() {
 
       // Freeze print data before resetting form
       if (isHotelType) {
-        const filledSkus = hotelSkus
-          .filter(s => skuQuantities[s.id] > 0)
-          .map(s => ({ ...s, quantity: skuQuantities[s.id] }))
+        const printPairs = {}
+        for (const cat of CATEGORY_ORDER) {
+          const catSkus = hotelSkus.filter(s => s.category === cat)
+          const withQty = catSkus.map(s => ({ ...s, quantity: skuQuantities[s.id] || 0 }))
+          printPairs[cat] = chunkPairs(withQty)
+        }
 
         setPrintData({
           customerName: customer.name,
@@ -236,8 +252,8 @@ export default function ProductionFormPage() {
           totalWeight: tw,
           cartWeight: cw,
           linenWeight: lw,
-          skus: filledSkus,
-          date: new Date().toLocaleDateString(),
+          skuPairs: printPairs,
+          date: todayFormatted(),
         })
       }
 
@@ -275,32 +291,81 @@ export default function ProductionFormPage() {
     isWellness ? sheetCount !== '' : true
   )
 
+  /* ── Renders a SKU table row (2 items side by side) ── */
+  function renderSkuRow(pair, idx) {
+    const left = pair[0]
+    const right = pair[1]
+    return (
+      <tr key={idx}>
+        {/* Left item name */}
+        <td className={`${cellBorder} ${cellPad} align-top`}>
+          <span className="text-sm font-medium">{left.name}</span>
+          {left.name_es && <br />}
+          {left.name_es && <span className="text-xs italic text-gray-500">{left.name_es}</span>}
+        </td>
+        {/* Left count input */}
+        <td className={`${cellBorder} p-1 align-middle w-16`}>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={skuQuantities[left.id] ?? ''}
+            onChange={(e) => handleSkuChange(left.id, e.target.value)}
+            placeholder=""
+            className="w-full h-12 text-center text-lg font-bold border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+          />
+        </td>
+        {/* Right item name (or shaded empty cell) */}
+        {right ? (
+          <td className={`${cellBorder} ${cellPad} align-top`}>
+            <span className="text-sm font-medium">{right.name}</span>
+            {right.name_es && <br />}
+            {right.name_es && <span className="text-xs italic text-gray-500">{right.name_es}</span>}
+          </td>
+        ) : (
+          <td className={`${cellBorder} bg-gray-200`} />
+        )}
+        {/* Right count input (or shaded empty cell) */}
+        {right ? (
+          <td className={`${cellBorder} p-1 align-middle w-16`}>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={skuQuantities[right.id] ?? ''}
+              onChange={(e) => handleSkuChange(right.id, e.target.value)}
+              placeholder=""
+              className="w-full h-12 text-center text-lg font-bold border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            />
+          </td>
+        ) : (
+          <td className={`${cellBorder} bg-gray-200 w-16`} />
+        )}
+      </tr>
+    )
+  }
+
   return (
     <>
-      {/* Main content — hidden when printing */}
+      {/* ════════════ SCREEN FORM ════════════ */}
       <div className="space-y-4 print:hidden">
         <h2 className="text-lg font-semibold text-gray-900">Production Form</h2>
 
-        {/* Success */}
         {success && (
           <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-green-800 font-medium text-center text-lg">
             {success}
           </div>
         )}
-
-        {/* Error */}
         {error && (
           <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700">
             {error}
           </div>
         )}
-
-        {/* Loading */}
         {lookingUp && (
           <div className="text-center py-8 text-gray-500">Looking up bin...</div>
         )}
 
-        {/* Step 1 — Scan (shown when no bin selected) */}
+        {/* ── Step 1: Scan ── */}
         {!bin && !lookingUp && (
           <>
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -348,145 +413,170 @@ export default function ProductionFormPage() {
           </>
         )}
 
-        {/* Bin found — show form */}
+        {/* ── Bin found: Cart sheet form ── */}
         {bin && customer && (
           <div className="space-y-4">
-            {/* Customer info card */}
-            <div className="bg-white rounded-lg border-2 border-blue-200 p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <CustomerLogo url={customer.logo_url} name={customer.name} size={60} />
-                <div>
-                  <p className="text-xl font-bold text-gray-900">{customer.name}</p>
-                  <p className="text-sm text-gray-500 font-mono">{bin.barcode}</p>
-                </div>
-              </div>
-            </div>
 
-            {/* Step 2 — Cart numbering */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Cart Numbering</label>
-              <div className="flex items-center gap-3 text-lg font-medium text-gray-700">
-                <span>Cart</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  value={cartNumber}
-                  onChange={(e) => setCartNumber(parseInt(e.target.value, 10) || 1)}
-                  className="w-20 min-h-[48px] border border-gray-300 rounded-lg text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <span>of</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  value={totalCarts}
-                  onChange={(e) => setTotalCarts(parseInt(e.target.value, 10) || 1)}
-                  className="w-20 min-h-[48px] border border-gray-300 rounded-lg text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            {/* Header matching physical form: logo, title, client, date/cart */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
+              <div className="flex justify-center mb-2">
+                <CustomerLogo url={customer.logo_url} name={customer.name} size={120} />
               </div>
-            </div>
-
-            {/* Step 3 — SKU form (hotel/limited service/specialty) */}
-            {isHotelType && (
-              <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-                <label className="block text-sm font-semibold text-gray-700">SKU Count Sheet</label>
-                {CATEGORY_ORDER.map(category => {
-                  const skus = skusByCategory[category]
-                  if (!skus || skus.length === 0) return null
-                  return (
-                    <div key={category}>
-                      <h3 className="text-sm font-bold text-[#1B2541] uppercase tracking-wider border-b border-gray-200 pb-1 mb-2">
-                        {category}
-                      </h3>
-                      <div className="space-y-2">
-                        {skus.map(sku => (
-                          <div key={sku.id} className="flex items-center justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-base font-medium text-gray-900 truncate">{sku.name}</p>
-                              {sku.name_es && (
-                                <p className="text-sm italic text-gray-400 truncate">{sku.name_es}</p>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => incrementSku(sku.id)}
-                              className="min-h-[48px] w-20 border border-gray-300 rounded-lg text-center text-lg font-bold text-gray-900 bg-gray-50 active:bg-blue-50 flex items-center justify-center"
-                            >
-                              {skuQuantities[sku.id] || 0}
-                            </button>
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              min={0}
-                              value={skuQuantities[sku.id] ?? ''}
-                              onChange={(e) => handleSkuChange(sku.id, e.target.value)}
-                              className="w-20 min-h-[48px] border border-gray-300 rounded-lg text-center text-lg font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="0"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* Step 3 — Wellness: sheet count */}
-            {isWellness && (
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Total Sheet Count</label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={sheetCount}
-                  onChange={(e) => setSheetCount(e.target.value)}
-                  placeholder="0"
-                  className="w-full min-h-[48px] border border-gray-300 rounded-lg px-4 py-3 text-2xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            )}
-
-            {/* Step 4 — Weight section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-              <label className="block text-sm font-semibold text-gray-700">Weights (lbs)</label>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Total Weight</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    value={totalWeight}
-                    onChange={(e) => setTotalWeight(e.target.value)}
-                    placeholder="0"
-                    className="w-full min-h-[48px] border border-gray-300 rounded-lg px-4 py-3 text-xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Cart Weight</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    value={cartWeight}
-                    onChange={(e) => setCartWeight(e.target.value)}
-                    placeholder="0"
-                    className="w-full min-h-[48px] border border-gray-300 rounded-lg px-4 py-3 text-xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Linen Weight</label>
-                  <div className="w-full min-h-[48px] border border-gray-200 bg-gray-50 rounded-lg px-4 py-3 text-xl font-bold text-center text-gray-700">
-                    {linenWeight !== null ? linenWeight : '—'}
+              <h3 className="text-xl font-medium text-gray-900 mb-3">Hotel Linen Cart Sheet</h3>
+              <div className="text-left space-y-2">
+                <p className="text-base">
+                  <span className="font-semibold">CLIENT:</span>{' '}
+                  <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{customer.name}</span>
+                </p>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <p className="text-base">
+                    <span className="font-semibold">DATE:</span>{' '}
+                    <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{todayFormatted()}</span>
+                  </p>
+                  <div className="flex items-center gap-1 text-base">
+                    <span className="font-semibold">CART:</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      value={cartNumber}
+                      onChange={(e) => setCartNumber(parseInt(e.target.value, 10) || 1)}
+                      className="w-14 min-h-[40px] border-b-2 border-gray-400 text-center text-lg font-bold bg-transparent focus:outline-none focus:border-blue-500"
+                    />
+                    <span className="font-semibold">of</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      value={totalCarts}
+                      onChange={(e) => setTotalCarts(parseInt(e.target.value, 10) || 1)}
+                      className="w-14 min-h-[40px] border-b-2 border-gray-400 text-center text-lg font-bold bg-transparent focus:outline-none focus:border-blue-500"
+                    />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Step 5 — Submit */}
+            {/* ── SKU table (hotel/limited service/specialty) ── */}
+            {isHotelType && (
+              <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <tbody>
+                    {CATEGORY_ORDER.map(category => {
+                      const pairs = skuPairsByCategory[category]
+                      if (!pairs || pairs.length === 0) return null
+                      return [
+                        /* Category header row */
+                        <tr key={`hdr-${category}`}>
+                          <td colSpan={4} className={`${cellBorder} text-center py-2`}>
+                            <span className="text-lg font-medium text-gray-900">{category}</span>
+                          </td>
+                        </tr>,
+                        /* SKU pair rows */
+                        ...pairs.map((pair, idx) => renderSkuRow(pair, `${category}-${idx}`))
+                      ]
+                    })}
+                    {/* Weight row — 6 columns matching physical form */}
+                    <tr>
+                      <td colSpan={4} className="p-0">
+                        <table className="w-full border-collapse">
+                          <tbody>
+                            <tr>
+                              <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
+                                <span className="text-sm font-bold leading-tight sm:text-base">TOTAL<br />WEIGHT</span>
+                              </td>
+                              <td className={`${cellBorder} p-1 align-middle`} style={{ width: '16%' }}>
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  value={totalWeight}
+                                  onChange={(e) => setTotalWeight(e.target.value)}
+                                  placeholder=""
+                                  className="w-full h-12 text-center text-lg font-bold border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                                />
+                              </td>
+                              <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
+                                <span className="text-sm font-bold leading-tight sm:text-base">CART<br />WEIGHT</span>
+                              </td>
+                              <td className={`${cellBorder} p-1 align-middle`} style={{ width: '16%' }}>
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  value={cartWeight}
+                                  onChange={(e) => setCartWeight(e.target.value)}
+                                  placeholder=""
+                                  className="w-full h-12 text-center text-lg font-bold border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                                />
+                              </td>
+                              <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
+                                <span className="text-sm font-bold leading-tight sm:text-base">LINEN<br />WEIGHT</span>
+                              </td>
+                              <td className={`${cellBorder} ${cellPad} text-center align-middle`} style={{ width: '16%' }}>
+                                <span className="text-lg font-bold">{linenWeight !== null ? linenWeight : '—'}</span>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* ── Wellness: sheet count + weights ── */}
+            {isWellness && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Total Sheet Count</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    value={sheetCount}
+                    onChange={(e) => setSheetCount(e.target.value)}
+                    placeholder="0"
+                    className="w-full min-h-[48px] border border-gray-300 rounded-lg px-4 py-3 text-2xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1 text-center">Total Weight</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      value={totalWeight}
+                      onChange={(e) => setTotalWeight(e.target.value)}
+                      placeholder="0"
+                      className="w-full min-h-[48px] border border-gray-300 rounded-lg px-2 py-2 text-xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1 text-center">Cart Weight</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      value={cartWeight}
+                      onChange={(e) => setCartWeight(e.target.value)}
+                      placeholder="0"
+                      className="w-full min-h-[48px] border border-gray-300 rounded-lg px-2 py-2 text-xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1 text-center">Linen Weight</label>
+                    <div className="w-full min-h-[48px] border border-gray-200 bg-gray-50 rounded-lg px-2 py-2 text-xl font-bold text-center text-gray-700 flex items-center justify-center">
+                      {linenWeight !== null ? linenWeight : '—'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Submit */}
             <button
               onClick={handleSubmit}
               disabled={!canSubmit}
@@ -497,7 +587,6 @@ export default function ProductionFormPage() {
               {submitting ? 'Saving...' : 'Submit Production Log'}
             </button>
 
-            {/* Scan another */}
             <button
               onClick={resetScan}
               className="w-full min-h-[48px] text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
@@ -508,63 +597,118 @@ export default function ProductionFormPage() {
         )}
       </div>
 
-      {/* Print layout — hidden on screen, shown on print */}
+      {/* ════════════ PRINT LAYOUT ════════════ */}
       {printData && (
-        <div className="hidden print:block p-8">
-          <div className="max-w-lg mx-auto">
-            {/* Header */}
-            <div className="text-center border-b-2 border-gray-800 pb-4 mb-4">
-              <img src="/header-logo.png" alt="White Sail" className="h-16 mx-auto mb-2" />
-              <p className="text-lg font-bold">Client: {printData.customerName}</p>
-              <p className="text-sm">Date: {printData.date}</p>
-              <p className="text-sm font-semibold">Cart {printData.cartNumber} of {printData.totalCarts}</p>
+        <div className="hidden print:block p-4">
+          <div className="max-w-2xl mx-auto">
+            {/* Logo centered */}
+            <div className="text-center mb-2">
+              <img src="/header-logo.png" alt="White Sail Linen" className="h-20 mx-auto" />
             </div>
 
-            {/* SKU table */}
-            {printData.skus.length > 0 && (
-              <table className="w-full border-collapse mb-4">
-                <thead>
-                  <tr>
-                    <th className="text-left py-1 px-2 border-b-2 border-gray-800 font-bold uppercase text-sm">Item</th>
-                    <th className="text-right py-1 px-2 border-b-2 border-gray-800 font-bold uppercase text-sm w-20">Qty</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {CATEGORY_ORDER.map(category => {
-                    const catSkus = printData.skus.filter(s => s.category === category)
-                    if (catSkus.length === 0) return null
-                    return (
-                      <tr key={category}>
-                        <td colSpan={2} className="pt-3 pb-1 px-2">
-                          <table className="w-full">
-                            <tbody>
-                              <tr>
-                                <td colSpan={2} className="font-bold uppercase text-xs tracking-wider text-gray-600 pb-1 border-b border-gray-300">
-                                  {category}
-                                </td>
-                              </tr>
-                              {catSkus.map(sku => (
-                                <tr key={sku.id}>
-                                  <td className="py-1 px-2 text-sm">{sku.name}</td>
-                                  <td className="py-1 px-2 text-sm text-right font-bold w-20">{sku.quantity}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+            {/* Title */}
+            <h1 className="text-2xl text-center mb-3">Hotel Linen Cart Sheet</h1>
+
+            {/* CLIENT / DATE / CART lines */}
+            <div className="mb-3 text-lg">
+              <p className="mb-1">
+                <span className="font-semibold">CLIENT:</span>{' '}
+                <span className="underline underline-offset-4">{printData.customerName}</span>
+              </p>
+              <div className="flex gap-8">
+                <p>
+                  <span className="font-semibold">DATE:</span>{' '}
+                  <span className="underline underline-offset-4">{printData.date}</span>
+                </p>
+                <p>
+                  <span className="font-semibold">CART:</span>{' '}
+                  <span className="underline underline-offset-4">{printData.cartNumber}</span>
+                  {' '}of{' '}
+                  <span className="underline underline-offset-4">{printData.totalCarts}</span>
+                </p>
+              </div>
+            </div>
+
+            {/* SKU table — exact replica of physical form */}
+            <table className="w-full border-collapse border border-black text-sm">
+              <tbody>
+                {CATEGORY_ORDER.map(category => {
+                  const pairs = printData.skuPairs[category]
+                  if (!pairs || pairs.length === 0) return null
+                  return [
+                    /* Category header */
+                    <tr key={`print-hdr-${category}`}>
+                      <td colSpan={4} className="border border-black text-center py-1.5">
+                        <span className="text-base">{category}</span>
+                      </td>
+                    </tr>,
+                    /* Paired rows */
+                    ...pairs.map((pair, idx) => (
+                      <tr key={`print-${category}-${idx}`}>
+                        {/* Left name */}
+                        <td className="border border-black px-2 py-1 align-top">
+                          <span className="font-medium">{pair[0]?.name}</span>
+                          {pair[0]?.name_es && <br />}
+                          {pair[0]?.name_es && <span className="italic text-gray-600 text-xs">{pair[0].name_es}</span>}
                         </td>
+                        {/* Left count */}
+                        <td className="border border-black px-2 py-1 text-center align-middle w-12 font-bold">
+                          {pair[0]?.quantity > 0 ? pair[0].quantity : ''}
+                        </td>
+                        {/* Right name or shaded */}
+                        {pair[1] ? (
+                          <td className="border border-black px-2 py-1 align-top">
+                            <span className="font-medium">{pair[1].name}</span>
+                            {pair[1].name_es && <br />}
+                            {pair[1].name_es && <span className="italic text-gray-600 text-xs">{pair[1].name_es}</span>}
+                          </td>
+                        ) : (
+                          <td className="border border-black bg-gray-300" />
+                        )}
+                        {/* Right count or shaded */}
+                        {pair[1] ? (
+                          <td className="border border-black px-2 py-1 text-center align-middle w-12 font-bold">
+                            {pair[1].quantity > 0 ? pair[1].quantity : ''}
+                          </td>
+                        ) : (
+                          <td className="border border-black bg-gray-300 w-12" />
+                        )}
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
+                    ))
+                  ]
+                })}
 
-            {/* Weights */}
-            <div className="border-t-2 border-gray-800 pt-3 space-y-1 text-sm">
-              <p><span className="font-semibold">Total Weight:</span> {printData.totalWeight} lbs</p>
-              <p><span className="font-semibold">Cart Weight:</span> {printData.cartWeight} lbs</p>
-              <p><span className="font-semibold">Linen Weight:</span> {printData.linenWeight} lbs</p>
-            </div>
+                {/* Weight row — 6 columns matching physical form */}
+                <tr>
+                  <td colSpan={4} className="p-0">
+                    <table className="w-full border-collapse">
+                      <tbody>
+                        <tr>
+                          <td className="border border-black px-2 py-2 text-center align-middle">
+                            <span className="text-xl font-bold leading-tight">TOTAL<br />WEIGHT</span>
+                          </td>
+                          <td className="border border-black px-2 py-2 text-center align-middle" style={{ width: '14%' }}>
+                            <span className="text-lg font-bold">{printData.totalWeight || ''}</span>
+                          </td>
+                          <td className="border border-black px-2 py-2 text-center align-middle">
+                            <span className="text-xl font-bold leading-tight">CART<br />WEIGHT</span>
+                          </td>
+                          <td className="border border-black px-2 py-2 text-center align-middle" style={{ width: '14%' }}>
+                            <span className="text-lg font-bold">{printData.cartWeight || ''}</span>
+                          </td>
+                          <td className="border border-black px-2 py-2 text-center align-middle">
+                            <span className="text-xl font-bold leading-tight">LINEN<br />WEIGHT</span>
+                          </td>
+                          <td className="border border-black px-2 py-2 text-center align-middle" style={{ width: '14%' }}>
+                            <span className="text-lg font-bold">{printData.linenWeight || ''}</span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
