@@ -163,6 +163,7 @@ export default function ProductionFormPage() {
           linenWeight: log.linen_weight || 0,
           skuPairs: printPairs,
           date: new Date(log.created_at).toLocaleDateString(),
+          barcode: log.bins?.barcode || '',
         })
 
         setTimeout(() => window.print(), 400)
@@ -427,6 +428,7 @@ export default function ProductionFormPage() {
           linenWeight: lw,
           skuPairs: printPairs,
           date: todayFormatted(),
+          barcode: bin?.barcode || '',
         })
       }
 
@@ -606,24 +608,35 @@ export default function ProductionFormPage() {
         {bin && customer && (
           <div className="space-y-4">
 
-            {/* Header: White Sail logo, title, customer logo, client/date */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 text-center">
-              <div className="flex justify-center mb-2">
-                <img src="/header-logo.png" alt="White Sail" style={{ maxHeight: 80, maxWidth: 200 }} />
+            {/* Header: White Sail logo + title, then 3-col row */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="text-center mb-2">
+                <img src="/header-logo.png" alt="White Sail" style={{ maxHeight: 80, maxWidth: 200 }} className="mx-auto" />
               </div>
-              <h3 className="text-[28px] font-bold text-gray-900 mb-3">Linen Cart Manifest</h3>
-              <div className="flex justify-center mb-3">
-                <CustomerLogo url={customer.logo_url} name={customer.name} size={250} />
-              </div>
-              <div className="text-left space-y-2">
-                <p className="text-lg">
-                  <span className="font-bold text-lg">CLIENT:</span>{' '}
-                  <span className="text-gray-800 text-lg underline underline-offset-4 decoration-gray-300">{customer.name}</span>
-                </p>
-                <p className="text-lg">
-                  <span className="font-bold text-lg">DATE:</span>{' '}
-                  <span className="text-gray-800 text-lg underline underline-offset-4 decoration-gray-300">{todayFormatted()}</span>
-                </p>
+              <h3 className="text-[28px] font-bold text-gray-900 text-center mb-3">Linen Cart Manifest</h3>
+              <div className="grid grid-cols-3 items-center gap-2">
+                {/* Left: CLIENT + DATE */}
+                <div className="space-y-1">
+                  <p className="text-lg">
+                    <span className="font-bold">CLIENT:</span>{' '}
+                    <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{customer.name}</span>
+                  </p>
+                  <p className="text-lg">
+                    <span className="font-bold">DATE:</span>{' '}
+                    <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{todayFormatted()}</span>
+                  </p>
+                </div>
+                {/* Center: Customer logo */}
+                <div className="flex justify-center">
+                  <CustomerLogo url={customer.logo_url} name={customer.name} size={150} />
+                </div>
+                {/* Right: CART barcode */}
+                <div className="text-right">
+                  <p className="text-lg">
+                    <span className="font-bold">CART:</span>{' '}
+                    <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{bin.barcode}</span>
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -852,30 +865,39 @@ export default function ProductionFormPage() {
         <div className="print-only p-4">
           <div className="max-w-2xl mx-auto">
             {/* White Sail logo */}
-            <div className="text-center mb-2">
-              <img src="/header-logo.png" alt="White Sail" className="mx-auto" style={{ maxHeight: 80, maxWidth: 200 }} />
+            <div className="text-center mb-1">
+              <img src="/header-logo.png" alt="White Sail" className="mx-auto" style={{ maxHeight: 60, maxWidth: 180 }} />
             </div>
 
             {/* Title */}
-            <h1 className="font-bold text-center mb-3" style={{ fontSize: '28px' }}>Linen Cart Manifest</h1>
+            <h1 className="font-bold text-center mb-2" style={{ fontSize: '24px' }}>Linen Cart Manifest</h1>
 
-            {/* Customer logo */}
-            {printData.customerLogoUrl && (
-              <div className="text-center mb-2">
-                <img src={printData.customerLogoUrl} alt={printData.customerName} className="mx-auto" style={{ maxHeight: 100, maxWidth: 250 }} />
+            {/* 3-column header: CLIENT+DATE | Customer logo | CART */}
+            <div className="mb-2" style={{ display: 'flex', alignItems: 'center', fontSize: '16px' }}>
+              {/* Left: CLIENT + DATE */}
+              <div style={{ flex: 1 }}>
+                <p className="mb-0.5">
+                  <span className="font-bold">CLIENT:</span>{' '}
+                  <span className="underline underline-offset-4">{printData.customerName}</span>
+                </p>
+                <p>
+                  <span className="font-bold">DATE:</span>{' '}
+                  <span className="underline underline-offset-4">{printData.date}</span>
+                </p>
               </div>
-            )}
-
-            {/* CLIENT / DATE lines */}
-            <div className="mb-3" style={{ fontSize: '18px' }}>
-              <p className="mb-1">
-                <span className="font-bold">CLIENT:</span>{' '}
-                <span className="underline underline-offset-4">{printData.customerName}</span>
-              </p>
-              <p>
-                <span className="font-bold">DATE:</span>{' '}
-                <span className="underline underline-offset-4">{printData.date}</span>
-              </p>
+              {/* Center: Customer logo */}
+              {printData.customerLogoUrl && (
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <img src={printData.customerLogoUrl} alt={printData.customerName} className="mx-auto" style={{ maxHeight: 70, maxWidth: 180 }} />
+                </div>
+              )}
+              {/* Right: CART */}
+              <div style={{ flex: 1, textAlign: 'right' }}>
+                <p>
+                  <span className="font-bold">CART:</span>{' '}
+                  <span className="underline underline-offset-4">{printData.barcode}</span>
+                </p>
+              </div>
             </div>
 
             {/* SKU table — exact replica of physical form */}
