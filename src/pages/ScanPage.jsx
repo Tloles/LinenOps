@@ -211,6 +211,8 @@ export default function ScanPage() {
       }
       if (truckId) rpcParams.p_truck_id = truckId
 
+      console.log('[handleStatusUpdate] binUpdate payload:', JSON.stringify(binUpdate))
+
       const { error: rpcError } = await supabase.rpc('record_scan', rpcParams)
 
       if (rpcError) {
@@ -224,6 +226,7 @@ export default function ScanPage() {
             .insert(insertRow)
           if (insertErr) throw insertErr
 
+          console.log('[handleStatusUpdate] fallback bin update:', JSON.stringify(binUpdate))
           const { error: updateErr } = await supabase
             .from('bins')
             .update(binUpdate)
@@ -232,13 +235,24 @@ export default function ScanPage() {
         } else {
           throw rpcError
         }
-      } else if (binSize) {
-        // RPC succeeded but doesn't handle size — update size separately
+      }
+
+      // Always update size after status change (RPC doesn't handle size)
+      if (binSize) {
+        console.log('[handleStatusUpdate] writing size:', binSize, 'to bin:', bin.id)
         const { error: sizeErr } = await supabase
           .from('bins')
           .update({ size: binSize })
           .eq('id', bin.id)
         if (sizeErr) throw sizeErr
+
+        // Verify the write
+        const { data: verify } = await supabase
+          .from('bins')
+          .select('id, size, current_status')
+          .eq('id', bin.id)
+          .single()
+        console.log('[handleStatusUpdate] verify after write:', JSON.stringify(verify))
       }
 
       setSuccess(`"${bin.barcode}" updated to ${statusLabel(newStatus)}`)
