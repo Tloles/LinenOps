@@ -237,12 +237,12 @@ export default function WashPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 text-left text-xs font-semibold text-gray-500 uppercase">
-                  <th className="py-2 pr-2">Time</th>
-                  <th className="py-2 pr-2">Washer</th>
-                  <th className="py-2 pr-2">Customer</th>
-                  <th className="py-2 pr-2">Cycle</th>
-                  <th className="py-2 pr-2 text-right">lbs</th>
-                  <th className="py-2" />
+                  <th className="py-2 pr-1 w-12">Time</th>
+                  <th className="py-2 pr-1 w-14">Washer</th>
+                  <th className="py-2 pr-1">Customer</th>
+                  <th className="py-2 pr-1 w-16">Cycle</th>
+                  <th className="py-2 pr-1 w-12 text-right">lbs</th>
+                  <th className="py-2 w-20" />
                 </tr>
               </thead>
               <tbody>
@@ -296,7 +296,7 @@ export default function WashPage() {
                         <td className="py-2 pr-2 text-xs text-gray-500">{formatTime(log.washed_at)}</td>
                         <td className="py-2 pr-2 font-medium">{log.washers?.name}</td>
                         <td className="py-2 pr-2">
-                          <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={40} />
+                          <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={100} />
                         </td>
                         <td className="py-2 pr-2">{log.wash_cycles?.name}</td>
                         <td className="py-2 pr-2 text-right font-medium">{log.weight_lbs}</td>
