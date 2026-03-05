@@ -100,6 +100,23 @@ export default function BinDetailPage() {
     }
   }
 
+  async function handleUpdateTareWeight(value) {
+    setActionLoading(true)
+    setError(null)
+    try {
+      const { error } = await supabase
+        .from('bins')
+        .update({ tare_weight: value === '' ? null : parseFloat(value) })
+        .eq('id', id)
+      if (error) throw error
+      await fetchData()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   async function handleChangeCustomer(newCustomerId) {
     setActionLoading(true)
     setError(null)
@@ -153,6 +170,11 @@ export default function BinDetailPage() {
           <p className="text-gray-600 mb-2">{bin.description}</p>
         )}
 
+        <p className="text-gray-600 mb-2">
+          <span className="font-medium text-gray-700">Tare Weight:</span>{' '}
+          {bin.tare_weight != null ? `${bin.tare_weight} lbs` : 'Not set'}
+        </p>
+
         {bin.customers?.name && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <CustomerLogo url={bin.customers.logo_url} name={bin.customers.name} size={40} />
@@ -183,6 +205,27 @@ export default function BinDetailPage() {
               >
                 {actionLoading ? 'Removing...' : 'Remove Bin'}
               </button>
+            )}
+
+            {/* Tare Weight */}
+            {!isRetired && (
+              <div>
+                <label htmlFor="change-tare-weight" className="block text-sm font-medium text-gray-700 mb-1">
+                  Tare Weight (lbs)
+                </label>
+                <input
+                  id="change-tare-weight"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={bin.tare_weight ?? ''}
+                  onChange={(e) => handleUpdateTareWeight(e.target.value)}
+                  disabled={actionLoading}
+                  placeholder="Not set"
+                  className="w-full py-3 px-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50"
+                />
+              </div>
             )}
 
             {/* Change Customer */}

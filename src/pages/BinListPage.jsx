@@ -17,6 +17,7 @@ export default function BinListPage() {
   const [barcode, setBarcode] = useState('')
   const [description, setDescription] = useState('')
   const [customerId, setCustomerId] = useState('')
+  const [tareWeight, setTareWeight] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
   const [showRemoved, setShowRemoved] = useState(false)
@@ -57,6 +58,7 @@ export default function BinListPage() {
   function openAddForm() {
     setBarcode('')
     setDescription('')
+    setTareWeight('')
     setCustomerId('')
     setFormError(null)
     setShowForm(true)
@@ -78,6 +80,7 @@ export default function BinListPage() {
         .insert({
           barcode,
           description: description || null,
+          tare_weight: tareWeight ? parseFloat(tareWeight) : null,
           customer_id: customerId || null,
           current_status: 'clean_staged',
         })
@@ -158,6 +161,23 @@ export default function BinListPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description"
+              className="w-full py-3 px-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="bin-tare" className="block text-sm font-medium text-gray-700 mb-1">
+              Tare Weight (lbs)
+            </label>
+            <input
+              id="bin-tare"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              value={tareWeight}
+              onChange={(e) => setTareWeight(e.target.value)}
+              placeholder="Optional"
               className="w-full py-3 px-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>

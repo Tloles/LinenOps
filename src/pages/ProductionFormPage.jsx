@@ -93,7 +93,7 @@ export default function ProductionFormPage() {
     console.log('[fetchRecentLogs] since:', since)
     const { data, error: fetchErr } = await supabase
       .from('production_logs')
-      .select('id, cart_number, total_carts, total_weight, cart_weight, linen_weight, customer_id, bin_id, created_at, customers(id, name, type, logo_url), bins(id, barcode)')
+      .select('id, cart_number, total_carts, total_weight, cart_weight, linen_weight, customer_id, bin_id, created_at, customers(id, name, type, logo_url), bins(id, barcode, tare_weight)')
       .gte('created_at', since)
       .order('created_at', { ascending: false })
     console.log('[fetchRecentLogs] error:', fetchErr, 'data:', data)
@@ -161,11 +161,11 @@ export default function ProductionFormPage() {
 
     // Set customer/bin from log data
     setCustomer(log.customers)
-    setBin(log.bins ? { id: log.bins.id, barcode: log.bins.barcode, customers: log.customers } : { id: log.bin_id, customers: log.customers })
+    setBin(log.bins ? { id: log.bins.id, barcode: log.bins.barcode, tare_weight: log.bins.tare_weight, customers: log.customers } : { id: log.bin_id, customers: log.customers })
     setCartNumber(log.cart_number || 1)
     setTotalCarts(log.total_carts || 1)
     setTotalWeight(log.total_weight ? String(log.total_weight) : '')
-    setCartWeight(log.cart_weight ? String(log.cart_weight) : '')
+    setCartWeight(log.cart_weight ? String(log.cart_weight) : (log.bins?.tare_weight ? String(log.bins.tare_weight) : ''))
     setSheetCount('')
     setEditingId(log.id)
 
@@ -304,7 +304,7 @@ export default function ProductionFormPage() {
       setSkuQuantities({})
       setSheetCount('')
       setTotalWeight('')
-      setCartWeight('')
+      setCartWeight(data.tare_weight ? String(data.tare_weight) : '')
       setPrintData(null)
     } catch (err) {
       setError(err.message)
@@ -623,6 +623,13 @@ export default function ProductionFormPage() {
                 </div>
               </div>
             </div>
+
+            {/* Tare weight warning */}
+            {bin && !bin.tare_weight && (
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                No tare weight on file for this bin.
+              </div>
+            )}
 
             {/* ── SKU table (hotel/limited service/specialty) ── */}
             {isHotelType && (
