@@ -27,7 +27,7 @@ export default function ScanPage() {
   const fetchSummaryBins = useCallback(async () => {
     const { data } = await supabase
       .from('bins')
-      .select('id, current_status, customer_id, customers(id, name, logo_url)')
+      .select('id, current_status, customer_id, size, customers(id, name, logo_url)')
       .is('retired_at', null)
     if (data) setSummaryBins(data)
   }, [])
@@ -70,7 +70,7 @@ export default function ScanPage() {
     async function init() {
       const { data } = await supabase
         .from('bins')
-        .select('id, current_status, customer_id, customers(id, name, logo_url)')
+        .select('id, current_status, customer_id, size, customers(id, name, logo_url)')
         .is('retired_at', null)
       if (data) {
         setSummaryBins(data)
@@ -83,7 +83,7 @@ export default function ScanPage() {
   const refreshAll = useCallback(async () => {
     const { data } = await supabase
       .from('bins')
-      .select('id, current_status, customer_id, customers(id, name, logo_url)')
+      .select('id, current_status, customer_id, size, customers(id, name, logo_url)')
       .is('retired_at', null)
     if (data) {
       setSummaryBins(data)

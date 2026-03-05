@@ -70,6 +70,7 @@ export default function DashboardPage() {
   }
 
   const onTruckStatusBins = bins.filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled')
+  console.log('[Dashboard] onTruckStatusBins:', onTruckStatusBins.map(b => ({ id: b.id, status: b.current_status, size: b.size, sizeType: typeof b.size })))
 
   // Plant Status — always show all four
   const PLANT_STATUSES = ['received_at_plant', 'in_process', 'clean_staged', 'delivered']
@@ -90,6 +91,7 @@ export default function DashboardPage() {
     const filtered = onTruckStatusBins.filter(b =>
       b.current_status === status && b.size === size
     )
+    console.log(`[Dashboard] ${label}: filtering status=${status} size=${size} → matched ${filtered.length}`, filtered.map(b => ({ id: b.id, size: b.size, status: b.current_status })))
     const customers = groupBinsByCustomer(filtered)
     const total = customers.reduce((s, c) => s + c.count, 0)
     return { label, total, customers }
