@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { WashingMachine } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { WASHER_ICON_SIZE } from '../lib/binUtils'
 import CustomerLogo from '../components/CustomerLogo'
 
 function utilizationIconColor(pct) {
@@ -159,11 +158,11 @@ export default function WashInfoPage() {
       {/* Washer Utilization (today only) — always visible at top */}
       <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
         <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider">Washer Utilization (Today)</h3>
-        <div className="grid grid-cols-6 gap-0.5">
+        <div className="grid grid-cols-6 gap-0.5 overflow-x-hidden">
           {washerUtil.map(w => (
-            <div key={w.id} className={`rounded-md px-0.5 py-1 border text-center ${utilizationColor(w.pct)}`}>
+            <div key={w.id} className={`rounded-md px-0.5 py-1 border text-center min-w-0 ${utilizationColor(w.pct)}`}>
               <div className="flex justify-center">
-                <WashingMachine size={WASHER_ICON_SIZE} className={utilizationIconColor(w.pct)} />
+                <WashingMachine className={`w-full h-auto max-w-full ${utilizationIconColor(w.pct)}`} />
               </div>
               <p className="text-lg font-bold leading-tight mt-0.5">{w.name}</p>
               <p className="text-[15px] font-medium leading-tight">{w.loads}L &middot; {w.lbs}lb</p>
