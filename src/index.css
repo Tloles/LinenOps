@@ -20,6 +20,14 @@
     background-color: white !important;
     background: white !important;
   }
+  .print-only, .print-only > div, .print-only div {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  .print-only table, .print-only td, .print-only th {
+    border: 1px solid black !important;
+  }
   @page {
     margin: 0.5in;
   }
