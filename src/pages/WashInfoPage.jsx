@@ -159,9 +159,9 @@ export default function WashInfoPage() {
       {/* Washer Utilization (today only) — always visible at top */}
       <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
         <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider">Washer Utilization (Today)</h3>
-        <div className="grid grid-cols-6 gap-1.5">
+        <div className="grid grid-cols-6 gap-0.5">
           {washerUtil.map(w => (
-            <div key={w.id} className={`rounded-lg px-1.5 py-1.5 border text-center ${utilizationColor(w.pct)}`}>
+            <div key={w.id} className={`rounded-md px-0.5 py-1 border text-center ${utilizationColor(w.pct)}`}>
               <div className="flex justify-center">
                 <WashingMachine size={WASHER_ICON_SIZE} className={utilizationIconColor(w.pct)} />
               </div>
