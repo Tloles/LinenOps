@@ -179,10 +179,34 @@ export default function ScanPage() {
   }
 
   function handleStatusTap(status) {
-    if (status === 'loaded') {
-      setPendingStatus('loaded')
+    if (status === 'loaded' || status === 'picked_up_soiled') {
+      setPendingStatus(status)
     } else {
       handleStatusUpdate(status)
+    }
+  }
+
+  async function handleTruckSizeSelect(size) {
+    if (!bin || !pendingStatus) return
+    setUpdating(true)
+    setError(null)
+
+    try {
+      // Save size to the bin
+      const { error: sizeErr } = await supabase
+        .from('bins')
+        .update({ size })
+        .eq('id', bin.id)
+      if (sizeErr) throw sizeErr
+
+      // Find the matching truck by size
+      const matchingTruck = trucks.find(t => t.name.includes(size))
+      const truckId = matchingTruck ? matchingTruck.id : null
+
+      await handleStatusUpdate(pendingStatus, truckId)
+    } catch (err) {
+      setError(err.message)
+      setUpdating(false)
     }
   }
 
@@ -373,21 +397,25 @@ export default function ScanPage() {
             )}
           </div>
 
-          {/* Truck selector — shown when pending loaded status */}
-          {pendingStatus === 'loaded' && (
+          {/* Truck size selector — shown when pending loaded or picked_up_soiled */}
+          {pendingStatus && (
             <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-700">Select truck:</p>
+              <p className="text-sm font-medium text-gray-700">Which truck?</p>
               <div className="grid grid-cols-2 gap-2">
-                {trucks.map(truck => (
-                  <button
-                    key={truck.id}
-                    onClick={() => handleStatusUpdate('loaded', truck.id)}
-                    disabled={updating}
-                    className="w-full min-h-[72px] text-xl font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700"
-                  >
-                    {updating ? 'Updating...' : truck.name}
-                  </button>
-                ))}
+                <button
+                  onClick={() => handleTruckSizeSelect('16')}
+                  disabled={updating}
+                  className="w-full min-h-[72px] text-xl font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700"
+                >
+                  {updating ? 'Updating...' : "16'"}
+                </button>
+                <button
+                  onClick={() => handleTruckSizeSelect('26')}
+                  disabled={updating}
+                  className="w-full min-h-[72px] text-xl font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700"
+                >
+                  {updating ? 'Updating...' : "26'"}
+                </button>
               </div>
               <button
                 onClick={() => setPendingStatus(null)}
