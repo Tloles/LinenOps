@@ -178,8 +178,13 @@ export default function ScanPage() {
     setManualBarcode('')
   }
 
-  function handleStatusTap(status) {
+  async function handleStatusTap(status) {
     if (status === 'loaded' || status === 'picked_up_soiled') {
+      // Clear stale size before prompting
+      if (bin) {
+        console.log('[handleStatusTap] clearing size to null for bin:', bin.id)
+        await supabase.from('bins').update({ size: null }).eq('id', bin.id)
+      }
       setPendingStatus(status)
     } else {
       handleStatusUpdate(status)
@@ -188,6 +193,7 @@ export default function ScanPage() {
 
   async function handleTruckSizeSelect(size) {
     if (!bin || !pendingStatus) return
+    console.log('[handleTruckSizeSelect] driver selected size:', size, 'for bin:', bin.id, 'pendingStatus:', pendingStatus)
     const matchingTruck = trucks.find(t => t.name.includes(size))
     const truckId = matchingTruck ? matchingTruck.id : null
     await handleStatusUpdate(pendingStatus, truckId, size)
@@ -199,11 +205,7 @@ export default function ScanPage() {
     setError(null)
 
     try {
-      // Build the bin update payload — always includes status, optionally size
-      const binUpdate = { current_status: newStatus }
-      if (binSize) binUpdate.size = binSize
-
-      // Try the record_scan RPC first
+      // Record the scan event (for truck_id tracking)
       const rpcParams = {
         p_bin_id: bin.id,
         p_status: newStatus,
@@ -211,12 +213,10 @@ export default function ScanPage() {
       }
       if (truckId) rpcParams.p_truck_id = truckId
 
-      console.log('[handleStatusUpdate] binUpdate payload:', JSON.stringify(binUpdate))
-
       const { error: rpcError } = await supabase.rpc('record_scan', rpcParams)
 
       if (rpcError) {
-        // Fallback: direct insert + update if RPC doesn't exist
+        // Fallback: direct insert if RPC doesn't exist
         if (rpcError.message.includes('record_scan') || rpcError.code === '42883') {
           const insertRow = { bin_id: bin.id, status: newStatus, scanned_by: user.id }
           if (truckId) insertRow.truck_id = truckId
@@ -225,35 +225,29 @@ export default function ScanPage() {
             .from('scan_events')
             .insert(insertRow)
           if (insertErr) throw insertErr
-
-          console.log('[handleStatusUpdate] fallback bin update:', JSON.stringify(binUpdate))
-          const { error: updateErr } = await supabase
-            .from('bins')
-            .update(binUpdate)
-            .eq('id', bin.id)
-          if (updateErr) throw updateErr
         } else {
           throw rpcError
         }
       }
 
-      // Always update size after status change (RPC doesn't handle size)
-      if (binSize) {
-        console.log('[handleStatusUpdate] writing size:', binSize, 'to bin:', bin.id)
-        const { error: sizeErr } = await supabase
-          .from('bins')
-          .update({ size: binSize })
-          .eq('id', bin.id)
-        if (sizeErr) throw sizeErr
+      // Single update call for bin — always set current_status, include size when provided
+      const binUpdate = { current_status: newStatus }
+      if (binSize) binUpdate.size = binSize
 
-        // Verify the write
-        const { data: verify } = await supabase
-          .from('bins')
-          .select('id, size, current_status')
-          .eq('id', bin.id)
-          .single()
-        console.log('[handleStatusUpdate] verify after write:', JSON.stringify(verify))
-      }
+      console.log('[handleStatusUpdate] bin update payload:', JSON.stringify(binUpdate), 'bin.id:', bin.id)
+      const { error: updateErr } = await supabase
+        .from('bins')
+        .update(binUpdate)
+        .eq('id', bin.id)
+      if (updateErr) throw updateErr
+
+      // Verify the write
+      const { data: verify } = await supabase
+        .from('bins')
+        .select('id, size, current_status')
+        .eq('id', bin.id)
+        .single()
+      console.log('[handleStatusUpdate] verify after update:', JSON.stringify(verify))
 
       setSuccess(`"${bin.barcode}" updated to ${statusLabel(newStatus)}`)
       setBin(null)
