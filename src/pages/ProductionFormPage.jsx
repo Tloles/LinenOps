@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CustomerLogo from '../components/CustomerLogo'
 
+const WHITE_SAIL_LOGO = supabase.storage.from('logos').getPublicUrl('white-sail-logo.png').data.publicUrl
+
 const CATEGORY_ORDER = ['Flatwork', 'Towels', 'Special Items']
 
 const PRINT_SKUS = {
@@ -611,7 +613,7 @@ export default function ProductionFormPage() {
             {/* Header: White Sail logo + title, then 3-col row */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="text-center mb-2">
-                <img src="/header-logo.png" alt="White Sail" style={{ maxHeight: 80, maxWidth: 200 }} className="mx-auto" />
+                <img src={WHITE_SAIL_LOGO} alt="White Sail" style={{ maxHeight: 80, maxWidth: 200 }} className="mx-auto" />
               </div>
               <h3 className="text-[28px] font-bold text-gray-900 text-center mb-3">Linen Cart Manifest</h3>
               <div className="grid grid-cols-3 items-center gap-2">
@@ -866,7 +868,7 @@ export default function ProductionFormPage() {
           <div className="max-w-2xl mx-auto">
             {/* White Sail logo */}
             <div className="text-center mb-1">
-              <img src="/header-logo.png" alt="White Sail" className="mx-auto" style={{ maxHeight: 60, maxWidth: 180 }} />
+              <img src={WHITE_SAIL_LOGO} alt="White Sail" className="mx-auto" style={{ maxHeight: 60, maxWidth: 180 }} />
             </div>
 
             {/* Title */}
