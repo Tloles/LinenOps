@@ -20,6 +20,7 @@ export default function BinListPage() {
   const [tareWeight, setTareWeight] = useState('')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
   const [showRemoved, setShowRemoved] = useState(false)
 
   async function fetchBins() {
@@ -61,17 +62,20 @@ export default function BinListPage() {
     setTareWeight('')
     setCustomerId('')
     setFormError(null)
+    setFieldErrors({})
     setShowForm(true)
   }
 
   function cancelForm() {
     setShowForm(false)
     setFormError(null)
+    setFieldErrors({})
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setFormError(null)
+    setFieldErrors({})
     setSaving(true)
 
     try {
@@ -99,7 +103,19 @@ export default function BinListPage() {
       cancelForm()
       await fetchBins()
     } catch (err) {
-      setFormError(err.message)
+      const msg = err.message || ''
+      if (msg.includes('tare_weight') && msg.includes('not-null')) {
+        setFormError('Please enter a Tare Weight before registering this bin.')
+        setFieldErrors({ tareWeight: true })
+      } else if (msg.includes('duplicate') || msg.includes('unique') || msg.includes('already exists')) {
+        setFormError('A bin with this barcode already exists.')
+      } else if (msg.includes('not-null') || msg.includes('violates not-null')) {
+        setFormError('A required field is missing. Please fill in all required fields.')
+      } else if (msg.includes('violates') || msg.includes('constraint')) {
+        setFormError('Could not register bin. Please check your inputs and try again.')
+      } else {
+        setFormError('Something went wrong. Please try again.')
+      }
     } finally {
       setSaving(false)
     }
@@ -166,7 +182,7 @@ export default function BinListPage() {
           </div>
 
           <div>
-            <label htmlFor="bin-tare" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="bin-tare" className={`block text-sm font-medium mb-1 ${fieldErrors.tareWeight ? 'text-red-700' : 'text-gray-700'}`}>
               Tare Weight (lbs) *
             </label>
             <input
@@ -177,9 +193,9 @@ export default function BinListPage() {
               min="0"
               required
               value={tareWeight}
-              onChange={(e) => setTareWeight(e.target.value)}
+              onChange={(e) => { setTareWeight(e.target.value); setFieldErrors(prev => ({ ...prev, tareWeight: false })) }}
               placeholder="e.g. 135"
-              className="w-full py-3 px-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={`w-full py-3 px-3 text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${fieldErrors.tareWeight ? 'border-red-500' : 'border-gray-300'}`}
             />
           </div>
 
