@@ -245,13 +245,13 @@ export default function ScanPage() {
         .eq('id', bin.id)
       if (updateErr) throw updateErr
 
-      // Verify the write
-      const { data: verify } = await supabase
+      // Re-fetch the actual bin record from the database
+      const { data: freshBin } = await supabase
         .from('bins')
-        .select('id, size, current_status')
+        .select('*, customers(name, logo_url)')
         .eq('id', bin.id)
         .single()
-      console.log('[handleStatusUpdate] verify after update:', JSON.stringify(verify))
+      console.log('[handleStatusUpdate] re-fetched bin:', JSON.stringify({ id: freshBin?.id, size: freshBin?.size, current_status: freshBin?.current_status }))
 
       setSuccess(`"${bin.barcode}" updated to ${statusLabel(newStatus)}`)
       setBin(null)
