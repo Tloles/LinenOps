@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { SCAN_STATUSES } from '../lib/constants'
-import { dashLabel, groupByCustomer, groupBinsByCustomer } from '../lib/binUtils'
+import { dashLabel, groupByCustomer, groupBinsByCustomer, groupByCustomerWithSize } from '../lib/binUtils'
 import CustomerGrid from '../components/CustomerGrid'
 
 export default function DashboardPage() {
@@ -17,7 +16,7 @@ export default function DashboardPage() {
       const [binsRes, trucksRes, washRes] = await Promise.all([
         supabase
           .from('bins')
-          .select('id, current_status, customer_id, customers(id, name, logo_url)')
+          .select('id, current_status, customer_id, size, customers(id, name, logo_url)')
           .is('retired_at', null),
         supabase
           .from('trucks')
@@ -91,12 +90,23 @@ export default function DashboardPage() {
   const onTruckStatusBins = bins.filter(b => b.current_status === 'loaded' || b.current_status === 'picked_up_soiled')
   const lost = bins.filter((b) => b.current_status === 'lost').length
 
-  // By Status — each active status with customer breakdown
-  const byStatus = SCAN_STATUSES.map((status) => {
+  // Plant Status — always show all four
+  const PLANT_STATUSES = ['received_at_plant', 'in_process', 'clean_staged', 'delivered']
+  const plantStatus = PLANT_STATUSES.map((status) => {
     const customers = groupByCustomer(bins, [status])
     const total = customers.reduce((s, c) => s + c.count, 0)
     return { status, total, customers }
-  }).filter((s) => s.total > 0)
+  })
+
+  // Truck Status — loaded & picked_up_soiled, with size breakdown
+  const TRUCK_STATUSES = ['loaded', 'picked_up_soiled']
+  const truckStatus = TRUCK_STATUSES.map((status) => {
+    const customers = groupByCustomerWithSize(bins, [status])
+    const total = customers.reduce((s, c) => s + c.count, 0)
+    const total16 = customers.reduce((s, c) => s + c.size16, 0)
+    const total26 = customers.reduce((s, c) => s + c.size26, 0)
+    return { status, total, total16, total26, customers }
+  })
 
   return (
     <div className="space-y-2">
@@ -146,21 +156,33 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* By Status */}
+      {/* Plant Status */}
       <div className="bg-white rounded-lg border border-gray-200 p-3">
-        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">By Status</h3>
-        {byStatus.length === 0 ? (
-          <p className="text-gray-400 text-sm">No active bins.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {byStatus.map(({ status, total, customers }) => (
-              <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-                <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500 capitalize">{dashLabel(status)}</span></p>
-                <CustomerGrid customers={customers} />
-              </div>
-            ))}
-          </div>
-        )}
+        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">Plant Status</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {plantStatus.map(({ status, total, customers }) => (
+            <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+              <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{dashLabel(status)}</span></p>
+              <CustomerGrid customers={customers} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* On Truck */}
+      <div className="bg-white rounded-lg border border-gray-200 p-3">
+        <h3 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">On Truck</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {truckStatus.map(({ status, total, total16, total26, customers }) => (
+            <div key={status} className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+              <p className="text-4xl font-bold text-[#1B2541]">{total} <span className="text-slate-500">{dashLabel(status)}</span></p>
+              <p className="text-sm font-medium text-gray-500 mt-0.5">
+                16&prime;: {total16} &nbsp;|&nbsp; 26&prime;: {total26}
+              </p>
+              <CustomerGrid customers={customers} />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
