@@ -147,6 +147,7 @@ export default function UsersPage() {
     setInviteError(null)
     setInviteSuccess(null)
     setInviting(true)
+    console.log('[Invite] VITE_SUPABASE_SERVICE_ROLE_KEY length:', import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY?.length)
 
     try {
       const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(invite.email, {
