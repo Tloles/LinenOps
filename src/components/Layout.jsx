@@ -148,7 +148,7 @@ export default function Layout() {
       </header>
 
       {/* ── Mobile Bottom Nav ── */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-16 bg-white border-t border-gray-200 flex items-center justify-around px-2 no-print">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-16 bg-[#1e3a5f] flex items-center justify-around px-2 no-print">
         {bottomItems.map(item => {
           const Icon = item.icon
           const to = resolveTo(item, role)
@@ -157,8 +157,8 @@ export default function Layout() {
               key={item.to}
               to={to}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium min-w-[56px] ${
-                  isActive ? 'text-[#1B2541]' : 'text-gray-400'
+                `flex flex-col items-center justify-center gap-0.5 px-2 py-1 text-xs font-medium min-w-[56px] ${
+                  isActive ? 'text-white border-b-2 border-white' : 'text-white/60'
                 }`
               }
             >
@@ -170,7 +170,7 @@ export default function Layout() {
         {moreItems.length > 0 && (
           <button
             onClick={() => setMoreOpen(true)}
-            className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded-lg text-xs font-medium text-gray-400 min-w-[56px]"
+            className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 text-xs font-medium text-white/60 min-w-[56px]"
           >
             <MoreHorizontal size={22} />
             <span>More</span>

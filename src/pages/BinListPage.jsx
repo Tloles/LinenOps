@@ -46,7 +46,7 @@ export default function BinListPage() {
   async function fetchCustomers() {
     const { data } = await supabase
       .from('customers')
-      .select('id, name')
+      .select('id, name, logo_url')
       .order('name')
     if (data) setCustomers(data)
   }
@@ -259,20 +259,47 @@ export default function BinListPage() {
           </div>
 
           <div>
-            <label htmlFor="bin-customer" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Customer
             </label>
-            <select
-              id="bin-customer"
-              value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-              className="w-full py-3 px-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-            >
-              <option value="">No customer</option>
+            <div className="flex flex-wrap gap-3">
+              {/* No customer option */}
+              <button
+                type="button"
+                onClick={() => setCustomerId('')}
+                className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-colors w-20 ${
+                  customerId === ''
+                    ? 'border-[#1B2541] bg-slate-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="size-12 lg:size-16 rounded-md bg-gray-100 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </div>
+                <span className="text-xs text-gray-500 text-center leading-tight truncate w-full">None</span>
+              </button>
               {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setCustomerId(c.id)}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-colors w-20 ${
+                    customerId === c.id
+                      ? 'border-[#1B2541] bg-slate-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <CustomerLogo
+                    url={c.logo_url}
+                    name={c.name}
+                    className="rounded-md object-contain shrink-0 size-12 lg:size-16"
+                  />
+                  <span className="text-xs text-gray-700 text-center leading-tight truncate w-full">{c.name}</span>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-1">
