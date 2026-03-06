@@ -354,57 +354,103 @@ export default function ProductionFormPage() {
       let linenChargeVal = 0
       let specialtyChargeVal = 0
 
-      const { data: pricing, error: pricingError } = await supabase
+      console.log('=== INVOICE CALC START ===')
+      console.log('[Invoice] customer:', { id: customer.id, name: customer.name, type: customer.type })
+      console.log('[Invoice] weights:', { totalWeight: tw, cartWeight: cw, linenWeight: lw })
+      console.log('[Invoice] skuQuantities:', JSON.parse(JSON.stringify(skuQuantities)))
+
+      // Debug: fetch WITHOUT .maybeSingle() to see raw array + count
+      const { data: pricingRows, error: pricingError, count: pricingCount } = await supabase
+        .from('customer_pricing')
+        .select('*', { count: 'exact' })
+        .eq('customer_id', customer.id)
+
+      console.log('[Invoice] customer_pricing raw query:')
+      console.log('  customer_id used:', customer.id)
+      console.log('  rows returned:', pricingRows)
+      console.log('  count:', pricingCount)
+      console.log('  error:', pricingError)
+      if (pricingError) {
+        console.log('  error code:', pricingError.code, 'message:', pricingError.message, 'hint:', pricingError.hint)
+      }
+
+      // Also try fetching ALL rows (no filter) to check if RLS is blocking
+      const { data: allPricingRows, error: allPricingError } = await supabase
         .from('customer_pricing')
         .select('*')
-        .eq('customer_id', customer.id)
-        .maybeSingle()
+      console.log('[Invoice] customer_pricing ALL rows (no filter):', { rows: allPricingRows, error: allPricingError })
+      if (allPricingRows && allPricingRows.length === 0 && !allPricingError) {
+        console.log('  >>> TABLE RETURNS 0 ROWS EVEN WITHOUT FILTER — likely RLS blocking reads (no SELECT policy)')
+      }
 
-      console.log('[Invoice] customer_pricing fetch:', { pricing, pricingError, customerId: customer.id })
+      const pricing = pricingRows?.[0] || null
 
       if (pricing) {
-        console.log('[Invoice] billing_type:', pricing.billing_type, 'rate_per_lb:', pricing.rate_per_lb, 'lw:', lw)
+        console.log('  ALL columns returned:', Object.keys(pricing))
+        console.log('  billing_type:', JSON.stringify(pricing.billing_type))
+        console.log('  rate_per_lb:', pricing.rate_per_lb, '(type:', typeof pricing.rate_per_lb, ')')
+        console.log('  piece_rate:', pricing.piece_rate, '(type:', typeof pricing.piece_rate, ')')
+        console.log('  piece_item:', pricing.piece_item)
+      } else {
+        console.log('  >>> NO PRICING ROW FOUND — all charges will be $0.00')
+      }
+
+      if (pricing) {
         if (pricing.billing_type === 'weight') {
           linenChargeVal = lw * (pricing.rate_per_lb || 0)
-          console.log('[Invoice] linenChargeVal:', linenChargeVal)
+          console.log('[Invoice] WEIGHT calc: linenWeight', lw, '×', pricing.rate_per_lb, '=', linenChargeVal)
 
           // Fetch specialty pricing for Special Items category
           const { data: specialtyRates, error: specError } = await supabase
             .from('specialty_pricing')
             .select('*')
 
-          console.log('[Invoice] specialty_pricing fetch:', { specialtyRates, specError })
+          console.log('[Invoice] specialty_pricing query result:')
+          console.log('  data:', specialtyRates)
+          console.log('  error:', specError)
+          if (specialtyRates && specialtyRates.length > 0) {
+            console.log('  ALL columns returned:', Object.keys(specialtyRates[0]))
+            console.log('  all rows:', specialtyRates)
+          }
 
           if (specialtyRates) {
             for (const sku of PRINT_SKUS['Special Items']) {
               const qty = skuQuantities[sku.key] || 0
-              if (qty > 0) {
-                const rate = specialtyRates.find(r => r.sku_name === sku.name)
-                console.log('[Invoice] specialty match:', { skuName: sku.name, qty, rate })
-                if (rate) specialtyChargeVal += qty * rate.price_per_piece
+              const rate = specialtyRates.find(r => r.sku_name?.toLowerCase() === sku.name.toLowerCase())
+              console.log(`[Invoice] specialty "${sku.name}" (key=${sku.key}): qty=${qty}, matchedRate=`, rate)
+              if (qty > 0 && rate) {
+                const charge = qty * rate.price_per_piece
+                console.log(`  >>> ${qty} × ${rate.price_per_piece} = ${charge}`)
+                specialtyChargeVal += charge
               }
             }
           }
 
           invoiceAmount = linenChargeVal + specialtyChargeVal
         } else if (pricing.billing_type === 'piece') {
+          console.log('[Invoice] PIECE billing — isWellness:', isWellness)
           if (isWellness) {
             const sc = parseInt(sheetCount, 10) || 0
             invoiceAmount = sc * (pricing.piece_rate || 0)
+            console.log('[Invoice] PIECE calc: sheetCount', sc, '×', pricing.piece_rate, '=', invoiceAmount)
           } else {
-            // Find the SKU matching piece_item name
-            const pieceSku = ALL_SKUS.find(s => s.name === pricing.piece_item)
+            const pieceSku = ALL_SKUS.find(s => s.name.toLowerCase() === pricing.piece_item?.toLowerCase())
+            console.log('[Invoice] PIECE lookup — piece_item:', JSON.stringify(pricing.piece_item), 'matchedSku:', pieceSku)
             if (pieceSku) {
               const qty = skuQuantities[pieceSku.key] || 0
               invoiceAmount = qty * (pricing.piece_rate || 0)
+              console.log('[Invoice] PIECE calc: qty', qty, '×', pricing.piece_rate, '=', invoiceAmount)
             }
           }
           linenChargeVal = invoiceAmount
           specialtyChargeVal = 0
+        } else {
+          console.log('[Invoice] >>> UNKNOWN billing_type:', JSON.stringify(pricing.billing_type))
         }
       }
 
-      console.log('[Invoice] FINAL:', { invoiceAmount, linenChargeVal, specialtyChargeVal })
+      console.log('[Invoice] FINAL VALUES:', { invoiceAmount, linenChargeVal, specialtyChargeVal })
+      console.log('=== INVOICE CALC END ===')
 
       const logRow = {
         customer_id: customer.id,
