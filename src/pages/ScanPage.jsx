@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { BrowserMultiFormatReader } from '@zxing/browser'
-import { DecodeHintType, BarcodeFormat } from '@zxing/library'
+import { HTMLCanvasElementLuminanceSource } from '@zxing/browser'
+import { DecodeHintType, MultiFormatReader, BinaryBitmap, HybridBinarizer } from '@zxing/library'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { STATUS_COLORS, statusLabel, NEXT_STATUS, SCAN_STATUSES } from '../lib/constants'
@@ -24,6 +24,8 @@ export default function ScanPage() {
   const [binTruckMap, setBinTruckMap] = useState({})
   const [torchOn, setTorchOn] = useState(false)
   const scannerRef = useRef(null)
+  const canvasRef = useRef(null)
+  const frameLoopRef = useRef(null)
   const html5QrRef = useRef(null)
 
   const fetchSummaryBins = useCallback(async () => {
@@ -94,18 +96,26 @@ export default function ScanPage() {
   }, [fetchTruckData])
 
   const stopScanner = useCallback(() => {
-    if (html5QrRef.current) {
-      html5QrRef.current.stop()
-      html5QrRef.current = null
+    if (frameLoopRef.current) {
+      cancelAnimationFrame(frameLoopRef.current)
+      frameLoopRef.current = null
     }
+    const video = scannerRef.current
+    if (video?.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop())
+      video.srcObject = null
+    }
+    html5QrRef.current = null
     setTorchOn(false)
     setScanning(false)
   }, [])
 
   useEffect(() => {
     return () => {
-      if (html5QrRef.current) {
-        html5QrRef.current.stop()
+      if (frameLoopRef.current) cancelAnimationFrame(frameLoopRef.current)
+      const video = scannerRef.current
+      if (video?.srcObject) {
+        video.srcObject.getTracks().forEach(t => t.stop())
       }
     }
   }, [])
@@ -119,31 +129,80 @@ export default function ScanPage() {
     setScanning(true)
 
     try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      })
+
+      const video = scannerRef.current
+      video.srcObject = stream
+      await video.play()
+
       const hints = new Map()
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.CODE_39,
-        BarcodeFormat.EAN_13,
-        BarcodeFormat.EAN_8,
-        BarcodeFormat.UPC_A,
-      ])
       hints.set(DecodeHintType.TRY_HARDER, true)
 
-      const reader = new BrowserMultiFormatReader(hints)
-      const controls = await reader.decodeFromConstraints(
-        { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
-        scannerRef.current,
-        (result) => {
-          if (result) {
-            controls?.stop()
-            html5QrRef.current = null
-            setTorchOn(false)
-            setScanning(false)
-            handleBarcodeScan(result.getText())
-          }
+      const coreReader = new MultiFormatReader()
+      coreReader.setHints(hints)
+      html5QrRef.current = { stop: () => stream.getTracks().forEach(t => t.stop()) }
+
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+
+      let lastDecode = 0
+      function decodeFrame(timestamp) {
+        if (!scannerRef.current?.srcObject) return
+
+        // Throttle processing to ~12fps
+        if (timestamp - lastDecode < 83) {
+          frameLoopRef.current = requestAnimationFrame(decodeFrame)
+          return
         }
-      )
-      html5QrRef.current = controls
+        lastDecode = timestamp
+
+        const w = video.videoWidth
+        const h = video.videoHeight
+        if (w === 0 || h === 0) {
+          frameLoopRef.current = requestAnimationFrame(decodeFrame)
+          return
+        }
+
+        canvas.width = w
+        canvas.height = h
+        ctx.drawImage(video, 0, 0, w, h)
+
+        // Grayscale + contrast boost for colored/low-contrast labels
+        const imageData = ctx.getImageData(0, 0, w, h)
+        const data = imageData.data
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+          const boosted = Math.min(255, Math.max(0, (gray - 128) * 1.5 + 128))
+          data[i] = data[i + 1] = data[i + 2] = boosted
+        }
+        ctx.putImageData(imageData, 0, 0)
+
+        try {
+          const luminance = new HTMLCanvasElementLuminanceSource(canvas)
+          const bitmap = new BinaryBitmap(new HybridBinarizer(luminance))
+          const result = coreReader.decode(bitmap)
+          // Decoded successfully — stop and handle
+          if (frameLoopRef.current) {
+            cancelAnimationFrame(frameLoopRef.current)
+            frameLoopRef.current = null
+          }
+          stream.getTracks().forEach(t => t.stop())
+          video.srcObject = null
+          html5QrRef.current = null
+          setTorchOn(false)
+          setScanning(false)
+          handleBarcodeScan(result.getText())
+          return
+        } catch {
+          // No barcode found in this frame, continue
+        }
+
+        frameLoopRef.current = requestAnimationFrame(decodeFrame)
+      }
+
+      frameLoopRef.current = requestAnimationFrame(decodeFrame)
     } catch {
       setError('Could not start camera. Please check permissions or use manual entry.')
       setScanning(false)
@@ -351,10 +410,31 @@ export default function ScanPage() {
         <>
           {/* Camera scanner */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <video
-              ref={scannerRef}
-              className={scanning ? 'w-full' : 'hidden'}
-            />
+            <div className="relative">
+              <video
+                ref={scannerRef}
+                className={scanning ? 'w-full' : 'hidden'}
+                playsInline
+                muted
+              />
+              {scanning && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <div
+                    className="absolute left-[10%] right-[10%] top-[30%] bottom-[30%] border-2 border-white/80 rounded-lg"
+                    style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}
+                  >
+                    <div className="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-[3px] border-l-[3px] border-green-400 rounded-tl-lg" />
+                    <div className="absolute -top-0.5 -right-0.5 w-6 h-6 border-t-[3px] border-r-[3px] border-green-400 rounded-tr-lg" />
+                    <div className="absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-[3px] border-l-[3px] border-green-400 rounded-bl-lg" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-[3px] border-r-[3px] border-green-400 rounded-br-lg" />
+                  </div>
+                  <p className="absolute bottom-3 left-0 right-0 text-center text-white text-xs font-medium drop-shadow">
+                    Aim barcode within frame
+                  </p>
+                </div>
+              )}
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
             {!scanning && (
               <button
                 onClick={startScanner}
