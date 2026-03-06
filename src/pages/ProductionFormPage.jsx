@@ -672,7 +672,7 @@ export default function ProductionFormPage() {
           </div>
         )}
         {lookingUp && (
-          <div className="text-center py-8 text-gray-500">Looking up bin...</div>
+          <div className="text-center py-8 text-gray-500">Looking up cart...</div>
         )}
 
         {/* ── Step 1: Scan ── */}

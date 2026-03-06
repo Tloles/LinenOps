@@ -26,8 +26,8 @@ const SIDEBAR_SECTIONS = [
   {
     label: 'OPERATIONS',
     items: [
-      { to: '/scan', label: 'Scan', icon: QrCode, show: () => true },
-      { to: '/bins', label: 'Bins', icon: Package, show: r => r !== 'driver' },
+      { to: '/scan', label: 'Scan Cart', icon: QrCode, show: () => true },
+      { to: '/bins', label: 'Cart Management', icon: Package, show: r => r !== 'driver' },
       { to: '/wash', label: 'Wash Form', icon: FileText, show: r => r !== 'driver' },
       { to: '/production', label: 'Production Form', icon: ClipboardList, show: r => r !== 'driver' },
     ],
@@ -37,7 +37,7 @@ const SIDEBAR_SECTIONS = [
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: r => r === 'owner' || r === 'manager' },
       { to: '/wash-info', label: 'Wash Info', icon: BarChart2, show: r => r !== 'driver' },
-      { to: '/production-info', label: 'Production Info', icon: Activity, show: r => r === 'owner' || r === 'manager' },
+      { to: '/production-info', label: 'Production Status', icon: Activity, show: r => r === 'owner' || r === 'manager' },
     ],
   },
   {
@@ -68,12 +68,12 @@ const MOBILE_PRIORITY = {
 
 const PAGE_TITLES = {
   '/dashboard': 'Dashboard',
-  '/scan': 'Scan',
-  '/bins': 'Bins',
+  '/scan': 'Scan Cart',
+  '/bins': 'Cart Management',
   '/wash': 'Wash Form',
   '/wash-info': 'Wash Info',
   '/production': 'Production Form',
-  '/production-info': 'Production Info',
+  '/production-info': 'Production Status',
   '/customers': 'Customers',
   '/invoicing': 'Invoicing',
   '/users': 'Users',

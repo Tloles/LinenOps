@@ -167,10 +167,10 @@ export default function BinDetailPage() {
         onClick={() => navigate('/bins')}
         className="min-h-[48px] px-4 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
       >
-        &larr; Back to Bins
+        &larr; Back to Carts
       </button>
 
-      {/* Bin Info */}
+      {/* Cart Info */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold font-mono text-gray-900">{bin.barcode}</h2>

@@ -302,7 +302,7 @@ export default function ScanPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">Scan Bin</h2>
+      <h2 className="text-lg font-semibold text-gray-900">Scan Cart</h2>
 
       {/* Success message */}
       {success && (
@@ -320,7 +320,7 @@ export default function ScanPage() {
 
       {/* Loading lookup */}
       {lookingUp && (
-        <div className="text-center py-8 text-gray-500">Looking up bin...</div>
+        <div className="text-center py-8 text-gray-500">Looking up cart...</div>
       )}
 
       {/* Scanner / Manual entry — shown when no bin is selected */}
@@ -471,7 +471,7 @@ export default function ScanPage() {
               onClick={resetScan}
               className="w-full min-h-[48px] text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
             >
-              Scan Another Bin
+              Scan Another Cart
             </button>
           )}
         </div>

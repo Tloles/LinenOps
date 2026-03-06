@@ -251,7 +251,7 @@ export default function ProductionInfoPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <h2 className="text-lg font-semibold text-gray-900">Production Info</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Production Status</h2>
         <span className="text-xs font-medium text-gray-400 bg-gray-100 rounded-full px-3 py-1">
           Auto-refreshes every 60s
         </span>

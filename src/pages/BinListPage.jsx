@@ -115,14 +115,14 @@ export default function BinListPage() {
     } catch (err) {
       const msg = err.message || ''
       if (msg.includes('tare_weight') && msg.includes('not-null')) {
-        setFormError('Please enter a Tare Weight before registering this bin.')
+        setFormError('Please enter a Tare Weight before registering this cart.')
         setFieldErrors({ tareWeight: true })
       } else if (msg.includes('duplicate') || msg.includes('unique') || msg.includes('already exists')) {
-        setFormError('A bin with this barcode already exists.')
+        setFormError('A cart with this barcode already exists.')
       } else if (msg.includes('not-null') || msg.includes('violates not-null')) {
         setFormError('A required field is missing. Please fill in all required fields.')
       } else if (msg.includes('violates') || msg.includes('constraint')) {
-        setFormError('Could not register bin. Please check your inputs and try again.')
+        setFormError('Could not register cart. Please check your inputs and try again.')
       } else {
         setFormError('Something went wrong. Please try again.')
       }
@@ -142,13 +142,13 @@ export default function BinListPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Bins</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Cart Management</h2>
         {role !== 'driver' && !showForm && (
           <button
             onClick={openAddForm}
             className="min-h-[48px] inline-flex items-center px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700"
           >
-            + Register Bin
+            + Register Cart
           </button>
         )}
       </div>
@@ -156,7 +156,7 @@ export default function BinListPage() {
       {/* Inline Add Bin Form */}
       {showForm && role !== 'driver' && (
         <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-5 mb-4 space-y-3">
-          <h3 className="font-semibold text-gray-900">Register New Bin</h3>
+          <h3 className="font-semibold text-gray-900">Register New Cart</h3>
 
           {formError && (
             <div className="p-3 rounded-lg bg-red-50 text-red-700 text-sm">{formError}</div>
@@ -308,7 +308,7 @@ export default function BinListPage() {
               disabled={saving}
               className="flex-1 min-h-[48px] bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? 'Registering...' : 'Register Bin'}
+              {saving ? 'Registering...' : 'Register Cart'}
             </button>
             <button
               type="button"
@@ -329,16 +329,16 @@ export default function BinListPage() {
           onChange={(e) => setShowRemoved(e.target.checked)}
           className="rounded"
         />
-        Show removed bins
+        Show removed carts
       </label>
 
       {/* Bin list */}
       {bins.length === 0 && !showForm ? (
         <div className="text-center py-12 text-gray-500">
-          No bins registered yet.
+          No carts registered yet.
           {role !== 'driver' && (
             <button onClick={openAddForm} className="block mx-auto mt-2 text-blue-600 hover:underline">
-              Register your first bin
+              Register your first cart
             </button>
           )}
         </div>
