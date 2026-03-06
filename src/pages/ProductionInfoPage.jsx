@@ -91,7 +91,7 @@ export default function ProductionInfoPage() {
     const [routesRes, binsRes, logsRes] = await Promise.all([
       supabase
         .from('routes')
-        .select('id, name, day_of_week, route_stops(id, customers(id, name, logo_url), locations(id, name, customers(id, name, logo_url)))')
+        .select('id, name, day_of_week, route_stops(id, customers(id, name, logo_url, type), locations(id, name, customers(id, name, logo_url, type)))')
         .in('day_of_week', threeDays),
       supabase
         .from('bins')
@@ -112,7 +112,7 @@ export default function ProductionInfoPage() {
       for (const route of dayRoutes) {
         for (const stop of (route.route_stops || [])) {
           const cust = stop.customers || stop.locations?.customers
-          if (cust && cust.id) {
+          if (cust && cust.id && cust.type !== 'wellness') {
             if (!customerMap.has(cust.id)) {
               customerMap.set(cust.id, { ...cust, routeName: `${route.day_of_week} — ${route.name}` })
             }
