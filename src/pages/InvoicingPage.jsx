@@ -538,12 +538,14 @@ export default function InvoicingPage() {
                       {formatDate(log.created_at)}
                     </td>
                     <td className="py-2 px-3 border-b border-slate-100">
-                      <div
-                        className="flex items-center gap-2 cursor-pointer hover:text-blue-600"
-                        onClick={() => fetchCustomerInsights(log.customer_id)}
-                      >
-                        <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={32} />
-                        <span className="font-medium text-blue-700 hover:underline">{log.customers?.name}</span>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => fetchCustomerInsights(log.customer_id)}
+                        >
+                          <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={32} />
+                        </div>
+                        <span className="font-medium">{log.customers?.name}</span>
                       </div>
                     </td>
                     <td className="py-2 px-3 border-b border-slate-100 text-right font-medium">
@@ -779,14 +781,14 @@ export default function InvoicingPage() {
                       <BarChart data={insightData.monthlyRevenue} barCategoryGap="20%">
                         <defs>
                           <linearGradient id="gradInsight" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
-                            <stop offset="100%" stopColor="#10b981" stopOpacity={1} />
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
+                            <stop offset="100%" stopColor="#1e3a5f" stopOpacity={1} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid stroke="#f0f0f0" strokeDasharray="none" vertical={false} />
                         <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} tickFormatter={fmtAxisDollar} />
-                        <Tooltip content={<RevenueTooltip />} cursor={{ fill: 'rgba(16,185,129,0.06)' }} />
+                        <Tooltip content={<RevenueTooltip />} cursor={{ fill: 'rgba(30,58,95,0.04)' }} />
                         <Bar dataKey="revenue" fill="url(#gradInsight)" radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out" />
                       </BarChart>
                     </ResponsiveContainer>
