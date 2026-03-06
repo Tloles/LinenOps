@@ -22,19 +22,42 @@ function routesPath(role) {
   return role === 'owner' || role === 'manager' ? '/routes' : '/routes/today'
 }
 
-const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: r => r === 'owner' || r === 'manager' },
-  { to: '/scan', label: 'Scan', icon: QrCode, show: () => true },
-  { to: '/bins', label: 'Bins', icon: Package, show: r => r !== 'driver' },
-  { to: '/wash', label: 'Wash Form', icon: FileText, show: r => r !== 'driver' },
-  { to: '/wash-info', label: 'Wash Info', icon: BarChart2, show: r => r !== 'driver' },
-  { to: '/production', label: 'Production Form', icon: ClipboardList, show: r => r !== 'driver' },
-  { to: '/production-info', label: 'Production Info', icon: Activity, show: r => r === 'owner' || r === 'manager' },
-  { to: '/customers', label: 'Customers', icon: Building2, show: r => r === 'owner' || r === 'manager' },
-  { to: '/invoicing', label: 'Invoicing', icon: DollarSign, show: r => r === 'owner' || r === 'manager' },
-  { to: '/users', label: 'Users', icon: UsersIcon, show: r => r === 'owner' },
-  { to: 'ROUTES', label: 'Routes', icon: Map, show: r => r !== 'production' },
+const SIDEBAR_SECTIONS = [
+  {
+    label: 'OPERATIONS',
+    items: [
+      { to: '/scan', label: 'Scan', icon: QrCode, show: () => true },
+      { to: '/bins', label: 'Bins', icon: Package, show: r => r !== 'driver' },
+      { to: '/wash', label: 'Wash Form', icon: FileText, show: r => r !== 'driver' },
+      { to: '/production', label: 'Production Form', icon: ClipboardList, show: r => r !== 'driver' },
+    ],
+  },
+  {
+    label: 'ANALYTICS',
+    items: [
+      { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: r => r === 'owner' || r === 'manager' },
+      { to: '/wash-info', label: 'Wash Info', icon: BarChart2, show: r => r !== 'driver' },
+      { to: '/production-info', label: 'Production Info', icon: Activity, show: r => r === 'owner' || r === 'manager' },
+    ],
+  },
+  {
+    label: 'BUSINESS',
+    items: [
+      { to: '/customers', label: 'Customers', icon: Building2, show: r => r === 'owner' || r === 'manager' },
+      { to: '/invoicing', label: 'Invoicing', icon: DollarSign, show: r => r === 'owner' || r === 'manager' },
+      { to: 'ROUTES', label: 'Routes', icon: Map, show: r => r !== 'production' },
+    ],
+  },
+  {
+    label: 'ADMIN',
+    items: [
+      { to: '/users', label: 'Users', icon: UsersIcon, show: r => r === 'owner' },
+    ],
+  },
 ]
+
+// Flat list for mobile nav
+const NAV_ITEMS = SIDEBAR_SECTIONS.flatMap(s => s.items)
 
 const MOBILE_PRIORITY = {
   driver: ['/scan', '/bins', 'ROUTES'],
@@ -94,25 +117,38 @@ export default function Layout() {
         </div>
 
         {/* Nav Links */}
-        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-          {visibleItems.map(item => {
-            const Icon = item.icon
-            const to = resolveTo(item, role)
+        <nav className="flex-1 overflow-y-auto px-3 py-2">
+          {SIDEBAR_SECTIONS.map(section => {
+            const sectionItems = section.items.filter(item => item.show(role))
+            if (sectionItems.length === 0) return null
             return (
-              <NavLink
-                key={item.to}
-                to={to}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-white/15 text-white'
-                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <Icon size={20} />
-                {item.label}
-              </NavLink>
+              <div key={section.label} className="mb-3">
+                <h3 className="px-3 py-1.5 text-[10px] font-semibold tracking-wider text-slate-500 uppercase">
+                  {section.label}
+                </h3>
+                <div className="space-y-0.5">
+                  {sectionItems.map(item => {
+                    const Icon = item.icon
+                    const to = resolveTo(item, role)
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={to}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-white/15 text-white'
+                              : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                          }`
+                        }
+                      >
+                        <Icon size={20} />
+                        {item.label}
+                      </NavLink>
+                    )
+                  })}
+                </div>
+              </div>
             )
           })}
         </nav>
