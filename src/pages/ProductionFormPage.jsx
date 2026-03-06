@@ -347,6 +347,12 @@ export default function ProductionFormPage() {
   // Submit
   async function handleSubmit() {
     if (!bin || !customer) return
+
+    // Zero-quantity confirmation for hotel types
+    if (isHotelType && !Object.values(skuQuantities).some(q => q > 0)) {
+      if (!window.confirm('No items have been counted. Are you sure you want to submit?')) return
+    }
+
     setSubmitting(true)
     setError(null)
 
@@ -355,6 +361,55 @@ export default function ProductionFormPage() {
     const lw = Math.max(0, tw - cw)
 
     try {
+      // ── Invoice calculation ──
+      let invoiceAmount = 0
+      let linenChargeVal = 0
+      let specialtyChargeVal = 0
+
+      const { data: pricing } = await supabase
+        .from('customer_pricing')
+        .select('*')
+        .eq('customer_id', customer.id)
+        .maybeSingle()
+
+      if (pricing) {
+        if (pricing.billing_type === 'weight') {
+          linenChargeVal = lw * (pricing.rate_per_lb || 0)
+
+          // Fetch specialty pricing for Special Items category
+          const { data: specialtyRates } = await supabase
+            .from('specialty_pricing')
+            .select('*')
+
+          if (specialtyRates) {
+            const specialtySkus = hotelSkus.filter(s => s.category === 'Special Items')
+            for (const sku of specialtySkus) {
+              const qty = skuQuantities[sku.id] || 0
+              if (qty > 0) {
+                const rate = specialtyRates.find(r => r.sku_name === sku.name)
+                if (rate) specialtyChargeVal += qty * rate.price_per_piece
+              }
+            }
+          }
+
+          invoiceAmount = linenChargeVal + specialtyChargeVal
+        } else if (pricing.billing_type === 'piece') {
+          if (isWellness) {
+            const sc = parseInt(sheetCount, 10) || 0
+            invoiceAmount = sc * (pricing.piece_rate || 0)
+          } else {
+            // Find the hotel_sku matching piece_item name
+            const pieceSku = hotelSkus.find(s => s.name === pricing.piece_item)
+            if (pieceSku) {
+              const qty = skuQuantities[pieceSku.id] || 0
+              invoiceAmount = qty * (pricing.piece_rate || 0)
+            }
+          }
+          linenChargeVal = invoiceAmount
+          specialtyChargeVal = 0
+        }
+      }
+
       const logRow = {
         customer_id: customer.id,
         bin_id: bin.id,
@@ -362,6 +417,9 @@ export default function ProductionFormPage() {
         cart_weight: cw,
         linen_weight: lw,
         logged_by: user.id,
+        invoice_amount: invoiceAmount,
+        linen_charge: linenChargeVal,
+        specialty_charge: specialtyChargeVal,
       }
 
       let logId

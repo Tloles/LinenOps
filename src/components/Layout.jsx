@@ -56,6 +56,7 @@ export default function Layout() {
         {role !== 'driver' && <NavTab to="/wash-info">Wash Info</NavTab>}
         {role !== 'driver' && <NavTab to="/production">Production</NavTab>}
         {(role === 'owner' || role === 'manager') && <NavTab to="/customers">Customers</NavTab>}
+        {(role === 'owner' || role === 'manager') && <NavTab to="/invoicing">Invoicing</NavTab>}
         {role === 'owner' && <NavTab to="/users">Users</NavTab>}
         {role !== 'production' && (
           <NavTab to={routesPath(role)}>Routes</NavTab>
