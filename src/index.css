@@ -5,30 +5,72 @@
 }
 
 @media print {
-  header, nav, .no-print {
-    display: none !important;
+  @page {
+    margin: 0.5in;
   }
-  .print-only {
-    display: block !important;
-  }
-  body {
+
+  html, body, #root {
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: white !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
+
+  header, nav, .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Root layout container and main */
+  #root > div {
+    min-height: 100% !important;
+    height: 100% !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+  }
+
+  #root > div > main {
+    height: 100% !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Remove all borders, shadows, outlines */
+  *, *::before, *::after {
+    box-shadow: none !important;
+    outline: none !important;
+    border-color: transparent !important;
+  }
+
+  /* Restore only table cell borders */
+  .print-only table, .print-only td, .print-only th {
+    border-color: black !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+  }
+
+  /* White backgrounds for print content */
   .print-only, .print-only *, .print-only td, .print-only th {
     background-color: white !important;
     background: white !important;
   }
-  .print-only, .print-only > div, .print-only div {
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-  }
-  .print-only table, .print-only td, .print-only th {
-    border: 1px solid black !important;
-  }
-  @page {
-    margin: 0.5in;
+
+  /* Table fills remaining height */
+  .print-only table {
+    width: 100% !important;
+    min-height: 100% !important;
   }
 }
