@@ -6,11 +6,13 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [role, setRole] = useState(null)
+  const [fullName, setFullName] = useState(null)
   const [loading, setLoading] = useState(true)
 
   async function fetchRole(user) {
     if (!user) {
       setRole(null)
+      setFullName(null)
       return
     }
 
@@ -20,7 +22,7 @@ export function AuthProvider({ children }) {
     // Try profiles table first
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, full_name')
       .eq('id', user.id)
       .maybeSingle()
 
@@ -29,6 +31,7 @@ export function AuthProvider({ children }) {
     if (profile?.role) {
       console.log('[AuthContext] Using role from profiles table:', profile.role)
       setRole(profile.role)
+      setFullName(profile.full_name || null)
       return
     }
 
@@ -36,6 +39,7 @@ export function AuthProvider({ children }) {
     const metaRole = user.user_metadata?.role ?? null
     console.log('[AuthContext] Falling back to user_metadata.role:', metaRole)
     setRole(metaRole)
+    setFullName(user.user_metadata?.full_name || null)
   }
 
   useEffect(() => {
@@ -67,7 +71,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, user, role, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, role, fullName, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )
