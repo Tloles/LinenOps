@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import CustomerLogo from '../components/CustomerLogo'
 
@@ -13,6 +14,7 @@ const SPECIALTY_KEYS = {
 }
 
 export default function InvoicingPage() {
+  const navigate = useNavigate()
   const [customers, setCustomers] = useState([])
   const [logs, setLogs] = useState([])
   const [logItems, setLogItems] = useState({}) // logId -> items[]
@@ -105,6 +107,25 @@ export default function InvoicingPage() {
     }
   }
 
+  // Delete a production log
+  async function handleDelete(logId) {
+    if (!window.confirm('Are you sure you want to delete this production log?')) return
+    try {
+      await supabase
+        .from('production_log_items')
+        .delete()
+        .eq('production_log_id', logId)
+      const { error } = await supabase
+        .from('production_logs')
+        .delete()
+        .eq('id', logId)
+      if (error) throw error
+      setLogs(prev => prev.filter(l => l.id !== logId))
+    } catch (err) {
+      console.error('Delete failed:', err)
+    }
+  }
+
   // Running total
   const runningTotal = useMemo(() => {
     return logs.reduce((sum, l) => sum + (l.invoice_amount || 0), 0)
@@ -180,6 +201,7 @@ export default function InvoicingPage() {
                 <th className="py-3 px-3 border-b border-slate-200 text-right">Specialty Charge</th>
                 <th className="py-3 px-3 border-b border-slate-200 text-right">Total</th>
                 <th className="py-3 px-3 border-b border-slate-200 text-center">Invoiced</th>
+                <th className="py-3 px-3 border-b border-slate-200 text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -238,6 +260,24 @@ export default function InvoicingPage() {
                         </svg>
                       </button>
                     </td>
+                    <td className="py-2 px-3 border-b border-slate-100 text-center">
+                      {!isInvoiced && (
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => navigate(`/production?edit=${log.id}`)}
+                            className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(log.id)}
+                            className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
@@ -257,7 +297,7 @@ export default function InvoicingPage() {
                 <td className="py-3 px-3 text-right">
                   {fmt(runningTotal)}
                 </td>
-                <td></td>
+                <td colSpan={2}></td>
               </tr>
             </tfoot>
           </table>

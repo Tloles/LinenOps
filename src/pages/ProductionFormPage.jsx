@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router'
 import { Html5Qrcode } from 'html5-qrcode'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -63,6 +64,7 @@ const cellPad = 'px-2 py-2'
 
 export default function ProductionFormPage() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // Step 1 — Scan
   const [scanning, setScanning] = useState(false)
@@ -124,6 +126,24 @@ export default function ProductionFormPage() {
   useEffect(() => {
     fetchRecentLogs()
   }, [fetchRecentLogs])
+
+  // Handle ?edit=<logId> from invoicing page
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (!editId) return
+    // Clear the param so it doesn't re-trigger
+    setSearchParams({}, { replace: true })
+
+    async function loadLogForEdit() {
+      const { data: log } = await supabase
+        .from('production_logs')
+        .select('id, total_weight, cart_weight, linen_weight, customer_id, bin_id, created_at, customers(id, name, type, logo_url), bins(id, barcode, tare_weight)')
+        .eq('id', editId)
+        .maybeSingle()
+      if (log) handleEdit(log)
+    }
+    loadLogForEdit()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reprint a past log
   async function handleReprint(log) {
