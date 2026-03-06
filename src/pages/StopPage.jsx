@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { BrowserMultiFormatReader } from '@zxing/browser'
+import { DecodeHintType, BarcodeFormat } from '@zxing/library'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { statusLabel, NEXT_STATUS } from '../lib/constants'
@@ -20,6 +21,7 @@ export default function StopPage() {
   const [scanning, setScanning] = useState(false)
   const [manualBarcode, setManualBarcode] = useState('')
   const [tally, setTally] = useState({ delivered: 0, picked_up: 0 })
+  const [torchOn, setTorchOn] = useState(false)
   const html5QrRef = useRef(null)
   const scannerRef = useRef(null)
 
@@ -87,22 +89,29 @@ export default function StopPage() {
       html5QrRef.current.stop()
       html5QrRef.current = null
     }
+    setTorchOn(false)
     setScanning(false)
   }, [])
 
   async function startScanner() {
     setMessage(null)
+    setTorchOn(false)
     setScanning(true)
 
     try {
-      const reader = new BrowserMultiFormatReader()
+      const hints = new Map()
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128])
+      hints.set(DecodeHintType.TRY_HARDER, true)
+
+      const reader = new BrowserMultiFormatReader(hints)
       const controls = await reader.decodeFromConstraints(
-        { video: { facingMode: 'environment' } },
+        { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
         scannerRef.current,
         (result) => {
           if (result) {
-            html5QrRef.current?.stop()
+            controls?.stop()
             html5QrRef.current = null
+            setTorchOn(false)
             setScanning(false)
             handleScan(result.getText())
           }
@@ -112,6 +121,20 @@ export default function StopPage() {
     } catch {
       setMessage({ type: 'error', text: 'Could not start camera. Use manual entry.' })
       setScanning(false)
+    }
+  }
+
+  async function toggleTorch() {
+    try {
+      const video = scannerRef.current
+      if (!video?.srcObject) return
+      const track = video.srcObject.getVideoTracks()[0]
+      if (!track) return
+      const newState = !torchOn
+      await track.applyConstraints({ advanced: [{ torch: newState }] })
+      setTorchOn(newState)
+    } catch {
+      // torch not supported on this device
     }
   }
 
@@ -329,12 +352,25 @@ export default function StopPage() {
               </button>
             )}
             {scanning && (
-              <button
-                onClick={stopScanner}
-                className="w-full min-h-[48px] bg-gray-100 text-gray-700 font-medium hover:bg-gray-200"
-              >
-                Stop Scanner
-              </button>
+              <div className="flex">
+                <button
+                  onClick={stopScanner}
+                  className="flex-1 min-h-[48px] bg-gray-100 text-gray-700 font-medium hover:bg-gray-200"
+                >
+                  Stop Scanner
+                </button>
+                <button
+                  onClick={toggleTorch}
+                  className={`min-h-[48px] px-4 font-medium transition-colors ${
+                    torchOn ? 'bg-yellow-400 text-gray-900' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                  title={torchOn ? 'Turn off flashlight' : 'Turn on flashlight'}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </button>
+              </div>
             )}
           </div>
 
