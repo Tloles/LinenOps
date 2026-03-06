@@ -2,6 +2,10 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import CustomerLogo from '../components/CustomerLogo'
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts'
 
 // Map sku_key to display name and category
 const SPECIALTY_KEYS = {
@@ -25,6 +29,34 @@ export default function InvoicingPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
+  // Summary cards
+  const [summaryData, setSummaryData] = useState({
+    totalUnbilled: 0,
+    invoicedToday: 0,
+    invoicedThisWeek: 0,
+    invoicedThisMonth: 0,
+  })
+
+  // Checkboxes & bulk actions
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkUpdating, setBulkUpdating] = useState(false)
+
+  // Customer insights slide-out
+  const [insightCustomerId, setInsightCustomerId] = useState(null)
+  const [insightData, setInsightData] = useState(null)
+  const [insightLoading, setInsightLoading] = useState(false)
+
+  // Trends
+  const [trendPeriod, setTrendPeriod] = useState('weekly')
+
+  // Derived: uninvoiced logs
+  const uninvoicedLogs = useMemo(() => logs.filter(l => !l.invoiced), [logs])
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [selectedCustomer, dateFrom, dateTo])
+
   // Fetch customers for dropdown
   useEffect(() => {
     async function fetchCustomers() {
@@ -35,6 +67,39 @@ export default function InvoicingPage() {
       if (data) setCustomers(data)
     }
     fetchCustomers()
+  }, [])
+
+  // Fetch summary totals
+  const fetchSummaryTotals = useCallback(async () => {
+    const now = new Date()
+    const todayStr = now.toISOString().slice(0, 10)
+
+    // Monday of this week
+    const day = now.getDay()
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+    const mondayStr = monday.toISOString().slice(0, 10)
+
+    // 1st of this month
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+
+    const [unbilled, today, week, month] = await Promise.all([
+      supabase.from('production_logs').select('invoice_amount').eq('invoiced', false),
+      supabase.from('production_logs').select('invoice_amount').eq('invoiced', true)
+        .gte('created_at', todayStr + 'T00:00:00').lte('created_at', todayStr + 'T23:59:59'),
+      supabase.from('production_logs').select('invoice_amount').eq('invoiced', true)
+        .gte('created_at', mondayStr + 'T00:00:00'),
+      supabase.from('production_logs').select('invoice_amount').eq('invoiced', true)
+        .gte('created_at', monthStart + 'T00:00:00'),
+    ])
+
+    const sum = (arr) => (arr || []).reduce((s, r) => s + (r.invoice_amount || 0), 0)
+    setSummaryData({
+      totalUnbilled: sum(unbilled.data),
+      invoicedToday: sum(today.data),
+      invoicedThisWeek: sum(week.data),
+      invoicedThisMonth: sum(month.data),
+    })
   }, [])
 
   // Fetch production logs based on filters
@@ -93,6 +158,11 @@ export default function InvoicingPage() {
     fetchLogs()
   }, [fetchLogs])
 
+  // Fetch summary on mount and when logs change
+  useEffect(() => {
+    fetchSummaryTotals()
+  }, [fetchSummaryTotals])
+
   // Toggle invoiced status
   async function toggleInvoiced(logId, current) {
     // Optimistic update
@@ -104,7 +174,31 @@ export default function InvoicingPage() {
     if (error) {
       // Revert on error
       setLogs(prev => prev.map(l => l.id === logId ? { ...l, invoiced: current } : l))
+    } else {
+      fetchSummaryTotals()
     }
+  }
+
+  // Bulk mark as invoiced
+  async function bulkMarkInvoiced() {
+    if (selectedIds.size === 0) return
+    setBulkUpdating(true)
+    const ids = [...selectedIds]
+    // Optimistic update
+    setLogs(prev => prev.map(l => ids.includes(l.id) ? { ...l, invoiced: true } : l))
+    setSelectedIds(new Set())
+
+    const { error } = await supabase
+      .from('production_logs')
+      .update({ invoiced: true })
+      .in('id', ids)
+
+    if (error) {
+      // Revert on error
+      setLogs(prev => prev.map(l => ids.includes(l.id) ? { ...l, invoiced: false } : l))
+    }
+    fetchSummaryTotals()
+    setBulkUpdating(false)
   }
 
   // Delete a production log
@@ -121,14 +215,140 @@ export default function InvoicingPage() {
         .eq('id', logId)
       if (error) throw error
       setLogs(prev => prev.filter(l => l.id !== logId))
+      fetchSummaryTotals()
     } catch (err) {
       console.error('Delete failed:', err)
     }
   }
 
+  // Select all / deselect all uninvoiced
+  function toggleSelectAll() {
+    if (selectedIds.size === uninvoicedLogs.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(uninvoicedLogs.map(l => l.id)))
+    }
+  }
+
+  function toggleSelectOne(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Customer insights
+  async function fetchCustomerInsights(customerId) {
+    setInsightCustomerId(customerId)
+    setInsightLoading(true)
+    setInsightData(null)
+
+    const [logsRes, customerRes] = await Promise.all([
+      supabase.from('production_logs')
+        .select('id, linen_weight, invoice_amount, invoiced, created_at')
+        .eq('customer_id', customerId),
+      supabase.from('customers')
+        .select('id, name, logo_url')
+        .eq('id', customerId)
+        .single(),
+    ])
+
+    const allLogs = logsRes.data || []
+    const customer = customerRes.data
+
+    const totalDeliveries = allLogs.length
+    const totalLbs = allLogs.reduce((s, l) => s + (l.linen_weight || 0), 0)
+    const avgLbs = totalDeliveries > 0 ? Math.round(totalLbs / totalDeliveries) : 0
+    const totalRevenue = allLogs.reduce((s, l) => s + (l.invoice_amount || 0), 0)
+    const totalUnbilled = allLogs.filter(l => !l.invoiced).reduce((s, l) => s + (l.invoice_amount || 0), 0)
+
+    const sortedByDate = [...allLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    const lastDeliveryDate = sortedByDate[0]?.created_at || null
+
+    // Last 6 months monthly revenue
+    const now = new Date()
+    const monthlyRevenue = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const label = d.toLocaleString('default', { month: 'short', year: '2-digit' })
+      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1)
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
+      const rev = allLogs
+        .filter(l => {
+          const ld = new Date(l.created_at)
+          return ld >= monthStart && ld <= monthEnd
+        })
+        .reduce((s, l) => s + (l.invoice_amount || 0), 0)
+      monthlyRevenue.push({ month: label, revenue: rev })
+    }
+
+    setInsightData({
+      customer,
+      totalDeliveries,
+      avgLbs,
+      totalRevenue,
+      totalUnbilled,
+      lastDeliveryDate,
+      monthlyRevenue,
+    })
+    setInsightLoading(false)
+  }
+
   // Running total
   const runningTotal = useMemo(() => {
     return logs.reduce((sum, l) => sum + (l.invoice_amount || 0), 0)
+  }, [logs])
+
+  // Trend charts data
+  const revenueOverTime = useMemo(() => {
+    if (logs.length === 0) return []
+    const groups = {}
+    for (const log of logs) {
+      const d = new Date(log.created_at)
+      let key
+      if (trendPeriod === 'weekly') {
+        // ISO week start (Monday)
+        const day = d.getDay()
+        const mon = new Date(d)
+        mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1))
+        key = mon.toISOString().slice(0, 10)
+      } else {
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      }
+      groups[key] = (groups[key] || 0) + (log.invoice_amount || 0)
+    }
+    return Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, revenue]) => ({
+        period: trendPeriod === 'weekly' ? period : new Date(period + '-01').toLocaleString('default', { month: 'short', year: '2-digit' }),
+        revenue: Math.round(revenue * 100) / 100,
+      }))
+  }, [logs, trendPeriod])
+
+  const revenueByCustomer = useMemo(() => {
+    if (logs.length === 0) return []
+    const groups = {}
+    for (const log of logs) {
+      const name = log.customers?.name || 'Unknown'
+      groups[name] = (groups[name] || 0) + (log.invoice_amount || 0)
+    }
+    return Object.entries(groups)
+      .sort(([, a], [, b]) => b - a)
+      .map(([name, revenue]) => ({ name, revenue: Math.round(revenue * 100) / 100 }))
+  }, [logs])
+
+  const lbsOverTime = useMemo(() => {
+    if (logs.length === 0) return []
+    const groups = {}
+    for (const log of logs) {
+      const d = new Date(log.created_at).toISOString().slice(0, 10)
+      groups[d] = (groups[d] || 0) + (log.linen_weight || 0)
+    }
+    return Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, lbs]) => ({ date, lbs }))
   }, [logs])
 
   function fmt(val) {
@@ -142,9 +362,26 @@ export default function InvoicingPage() {
     return d.toLocaleDateString()
   }
 
+  const summaryCards = [
+    { label: 'Total Unbilled', value: summaryData.totalUnbilled, color: 'border-amber-400', bg: 'bg-amber-50', text: 'text-amber-700' },
+    { label: 'Invoiced Today', value: summaryData.invoicedToday, color: 'border-green-400', bg: 'bg-green-50', text: 'text-green-700' },
+    { label: 'Invoiced This Week', value: summaryData.invoicedThisWeek, color: 'border-blue-400', bg: 'bg-blue-50', text: 'text-blue-700' },
+    { label: 'Invoiced This Month', value: summaryData.invoicedThisMonth, color: 'border-indigo-400', bg: 'bg-indigo-50', text: 'text-indigo-700' },
+  ]
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900">Invoicing</h2>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {summaryCards.map((card) => (
+          <div key={card.label} className={`bg-white rounded-lg border border-gray-200 border-l-4 ${card.color} p-4`}>
+            <div className="text-xs font-medium text-gray-500 uppercase">{card.label}</div>
+            <div className={`text-xl font-bold ${card.text} mt-1`}>{fmt(card.value)}</div>
+          </div>
+        ))}
+      </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -183,6 +420,22 @@ export default function InvoicingPage() {
         </div>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+          <span className="text-sm font-medium text-blue-800">
+            {selectedIds.size} item{selectedIds.size > 1 ? 's' : ''} selected
+          </span>
+          <button
+            onClick={bulkMarkInvoiced}
+            disabled={bulkUpdating}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+          >
+            {bulkUpdating ? 'Updating...' : 'Mark Selected as Invoiced'}
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
         {loading ? (
@@ -193,6 +446,14 @@ export default function InvoicingPage() {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-slate-100 text-left text-xs font-bold text-[#1B2541] uppercase">
+                <th className="py-3 px-3 border-b border-slate-200 w-10">
+                  <input
+                    type="checkbox"
+                    checked={uninvoicedLogs.length > 0 && selectedIds.size === uninvoicedLogs.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </th>
                 <th className="py-3 px-3 border-b border-slate-200">Date</th>
                 <th className="py-3 px-3 border-b border-slate-200">Customer</th>
                 <th className="py-3 px-3 border-b border-slate-200 text-right">Linen LBS</th>
@@ -211,15 +472,28 @@ export default function InvoicingPage() {
                 return (
                   <tr
                     key={log.id}
-                    className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'} ${isInvoiced ? 'bg-green-50/50 text-gray-400' : ''}`}
+                    className={isInvoiced ? 'bg-green-50 text-gray-400' : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50')}
                   >
+                    <td className="py-2 px-3 border-b border-slate-100">
+                      {!isInvoiced ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(log.id)}
+                          onChange={() => toggleSelectOne(log.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      ) : null}
+                    </td>
                     <td className="py-2 px-3 border-b border-slate-100 whitespace-nowrap">
                       {formatDate(log.created_at)}
                     </td>
                     <td className="py-2 px-3 border-b border-slate-100">
-                      <div className="flex items-center gap-2">
+                      <div
+                        className="flex items-center gap-2 cursor-pointer hover:text-blue-600"
+                        onClick={() => fetchCustomerInsights(log.customer_id)}
+                      >
                         <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={32} />
-                        <span className="font-medium">{log.customers?.name}</span>
+                        <span className="font-medium text-blue-700 hover:underline">{log.customers?.name}</span>
                       </div>
                     </td>
                     <td className="py-2 px-3 border-b border-slate-100 text-right font-medium">
@@ -285,7 +559,7 @@ export default function InvoicingPage() {
             {/* Footer with running total */}
             <tfoot>
               <tr className="bg-slate-100 font-bold">
-                <td colSpan={4} className="py-3 px-3 text-right uppercase text-xs text-gray-600">
+                <td colSpan={5} className="py-3 px-3 text-right uppercase text-xs text-gray-600">
                   Total
                 </td>
                 <td className="py-3 px-3 text-right">
@@ -303,6 +577,152 @@ export default function InvoicingPage() {
           </table>
         )}
       </div>
+
+      {/* Trends Section */}
+      {logs.length > 0 && (
+        <div className="space-y-6">
+          <h3 className="text-md font-semibold text-gray-900">Trends</h3>
+
+          {/* Revenue Over Time - full width */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-sm font-semibold text-gray-700">Revenue Over Time</h4>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setTrendPeriod('weekly')}
+                  className={`px-3 py-1 text-xs rounded-lg font-medium ${trendPeriod === 'weekly' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setTrendPeriod('monthly')}
+                  className={`px-3 py-1 text-xs rounded-lg font-medium ${trendPeriod === 'monthly' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  Monthly
+                </button>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={revenueOverTime}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(v) => ['$' + v.toFixed(2), 'Revenue']} />
+                <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Side by side: Revenue by Customer + Lbs Over Time */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-4">Revenue by Customer</h4>
+              <ResponsiveContainer width="100%" height={Math.max(200, revenueByCustomer.length * 40)}>
+                <BarChart data={revenueByCustomer} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" tick={{ fontSize: 12 }} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={120} />
+                  <Tooltip formatter={(v) => ['$' + v.toFixed(2), 'Revenue']} />
+                  <Bar dataKey="revenue" fill="#6366f1" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-4">Lbs Over Time</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={lbsOverTime}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="lbs" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Insights Slide-Out Panel */}
+      {insightCustomerId && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/30 z-40"
+            onClick={() => setInsightCustomerId(null)}
+          />
+          {/* Panel */}
+          <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-xl z-50 overflow-y-auto">
+            <div className="p-6">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Customer Insights</h3>
+                <button
+                  onClick={() => setInsightCustomerId(null)}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+
+              {insightLoading ? (
+                <div className="text-center py-12 text-gray-500">Loading insights...</div>
+              ) : insightData ? (
+                <div className="space-y-6">
+                  {/* Customer info */}
+                  <div className="flex items-center gap-4">
+                    <CustomerLogo url={insightData.customer?.logo_url} name={insightData.customer?.name} size={80} />
+                    <h4 className="text-xl font-bold text-gray-900">{insightData.customer?.name}</h4>
+                  </div>
+
+                  {/* Stats grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="text-xs font-medium text-gray-500 uppercase">Total Deliveries</div>
+                      <div className="text-lg font-bold text-gray-900 mt-1">{insightData.totalDeliveries}</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="text-xs font-medium text-gray-500 uppercase">Avg LBS</div>
+                      <div className="text-lg font-bold text-gray-900 mt-1">{insightData.avgLbs}</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="text-xs font-medium text-gray-500 uppercase">Total Revenue</div>
+                      <div className="text-lg font-bold text-green-700 mt-1">{fmt(insightData.totalRevenue)}</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <div className="text-xs font-medium text-gray-500 uppercase">Unbilled</div>
+                      <div className="text-lg font-bold text-amber-700 mt-1">{fmt(insightData.totalUnbilled)}</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3 col-span-2">
+                      <div className="text-xs font-medium text-gray-500 uppercase">Last Delivery</div>
+                      <div className="text-lg font-bold text-gray-900 mt-1">
+                        {insightData.lastDeliveryDate ? formatDate(insightData.lastDeliveryDate) : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Monthly revenue chart */}
+                  <div>
+                    <h5 className="text-sm font-semibold text-gray-700 mb-3">Monthly Revenue (Last 6 Months)</h5>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={insightData.monthlyRevenue}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <Tooltip formatter={(v) => ['$' + v.toFixed(2), 'Revenue']} />
+                        <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
