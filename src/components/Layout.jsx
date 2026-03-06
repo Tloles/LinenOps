@@ -2,7 +2,7 @@ import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../context/AuthContext'
 
 function routesPath(role) {
-  return role === 'owner' ? '/routes' : '/routes/today'
+  return role === 'owner' || role === 'manager' ? '/routes' : '/routes/today'
 }
 
 function NavTab({ to, end, children }) {
@@ -49,13 +49,13 @@ export default function Layout() {
       </header>
 
       <nav className="bg-white border-b border-gray-200 px-4 flex gap-1 overflow-x-auto no-print">
-        {role === 'owner' && <NavTab to="/dashboard">Dashboard</NavTab>}
+        {(role === 'owner' || role === 'manager') && <NavTab to="/dashboard">Dashboard</NavTab>}
         <NavTab to="/scan">Scan</NavTab>
         {role !== 'driver' && <NavTab to="/bins">Bins</NavTab>}
         {role !== 'driver' && <NavTab to="/wash">Wash Form</NavTab>}
         {role !== 'driver' && <NavTab to="/wash-info">Wash Info</NavTab>}
         {role !== 'driver' && <NavTab to="/production">Production</NavTab>}
-        {role === 'owner' && <NavTab to="/customers">Customers</NavTab>}
+        {(role === 'owner' || role === 'manager') && <NavTab to="/customers">Customers</NavTab>}
         {role === 'owner' && <NavTab to="/users">Users</NavTab>}
         {role !== 'production' && (
           <NavTab to={routesPath(role)}>Routes</NavTab>

@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react'
+import { Navigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { supabaseAdmin } from '../lib/supabaseAdmin'
+import { useAuth } from '../context/AuthContext'
 
-const ROLES = ['owner', 'driver', 'production']
+const ROLES = ['owner', 'manager', 'driver', 'production']
 
 const emptyInvite = { full_name: '', email: '', role: 'driver' }
 
 export default function UsersPage() {
+  const { role: currentRole } = useAuth()
+
+  if (currentRole !== 'owner') {
+    return <Navigate to="/dashboard" replace />
+  }
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
