@@ -8,6 +8,10 @@ import {
 
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
+function capitalize(str) {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
+}
+
 function getProdDayStart() {
   const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
   const nowUTC = new Date()
@@ -33,7 +37,6 @@ function getThreeDayNames() {
   fiveAMToday.setHours(5, 0, 0, 0)
   const fiveAMTodayUTC = new Date(fiveAMToday.getTime() + etOffsetMs)
 
-  // If before 5 AM, the production day started yesterday
   const prodDayET = nowUTC >= fiveAMTodayUTC ? nowET : new Date(nowET.getTime() - 24 * 60 * 60 * 1000)
 
   const days = []
@@ -45,11 +48,31 @@ function getThreeDayNames() {
   return days
 }
 
-function statusInfo(hasInProcess, hasLog) {
-  if (!hasInProcess && !hasLog) return { emoji: '\u{1F534}', label: 'Not Started', color: 'border-red-300 bg-red-50' }
-  if (hasInProcess && !hasLog) return { emoji: '\u{1F7E1}', label: 'Washing', color: 'border-yellow-300 bg-yellow-50' }
-  if (hasInProcess && hasLog) return { emoji: '\u{1F7E0}', label: 'Producing', color: 'border-orange-300 bg-orange-50' }
-  return { emoji: '\u{1F7E2}', label: 'Ready', color: 'border-green-300 bg-green-50' }
+function getStatus(custId, bins, custLogs) {
+  const received = bins.filter(b => b.customer_id === custId && b.current_status === 'received_at_plant').length
+  const inProcess = bins.filter(b => b.customer_id === custId && b.current_status === 'in_process').length
+  const logCount = custLogs.length
+  const lbsToday = custLogs.reduce((s, l) => s + (l.linen_weight || 0), 0)
+
+  if (inProcess > 0 && logCount > 0) {
+    return { emoji: '\u{1F7E0}', label: 'Producing', color: 'border-orange-300 bg-orange-50', detail: `${logCount} completed, ${inProcess} in process`, lbsToday }
+  }
+  if (inProcess > 0) {
+    return { emoji: '\u{1F7E1}', label: 'Washing', color: 'border-yellow-300 bg-yellow-50', detail: `${inProcess} cart${inProcess !== 1 ? 's' : ''} in process`, lbsToday }
+  }
+  if (logCount > 0) {
+    return { emoji: '\u{1F7E2}', label: 'Ready', color: 'border-green-300 bg-green-50', detail: `${lbsToday} lbs`, lbsToday }
+  }
+  if (received > 0) {
+    return { emoji: '\u{1F534}', label: 'Carts Waiting', color: 'border-red-300 bg-red-50', detail: `${received} cart${received !== 1 ? 's' : ''} waiting`, lbsToday: 0 }
+  }
+  return { emoji: '\u26AA', label: 'Pending Pickup', color: 'border-gray-300 bg-gray-50', detail: '', lbsToday: 0 }
+}
+
+function freqLabel(count) {
+  if (!count) return '0x/week'
+  if (count >= 7) return 'Daily'
+  return `${count}x/week`
 }
 
 function LbsTooltip({ active, payload, label }) {
@@ -78,10 +101,12 @@ function formatHourLabel(hour) {
 
 export default function ProductionInfoPage() {
   const [loading, setLoading] = useState(true)
-  const [dayCustomers, setDayCustomers] = useState([[], [], []]) // [today, tomorrow, dayAfter]
-  const [inProcessBins, setInProcessBins] = useState([])
+  const [todayRouteGroups, setTodayRouteGroups] = useState([]) // [{ routeId, routeName, customers }]
+  const [futureCustomers, setFutureCustomers] = useState([[], []]) // [tomorrow, dayAfter]
+  const [bins, setBins] = useState([])
   const [prodLogs, setProdLogs] = useState([])
   const [dayNames, setDayNames] = useState(['', '', ''])
+  const [frequencyMap, setFrequencyMap] = useState(new Map())
 
   const fetchAll = useCallback(async () => {
     const prodDayStartISO = getProdDayStart()
@@ -90,15 +115,18 @@ export default function ProductionInfoPage() {
     console.log('[ProductionInfo] fetching data, days:', day0, day1, day2)
     setDayNames(threeDays)
 
-    const [routesRes, binsRes, logsRes] = await Promise.all([
+    const [routesRes, allRoutesRes, binsRes, logsRes] = await Promise.all([
       supabase
         .from('routes')
         .select('id, name, day_of_week, route_stops(id, customers(id, name, logo_url, type), locations(id, name, customers(id, name, logo_url, type)))')
         .in('day_of_week', threeDays),
       supabase
+        .from('routes')
+        .select('day_of_week, route_stops(customers(id), locations(customers(id)))'),
+      supabase
         .from('bins')
-        .select('id, customer_id')
-        .eq('current_status', 'in_process'),
+        .select('id, customer_id, current_status')
+        .in('current_status', ['received_at_plant', 'in_process']),
       supabase
         .from('production_logs')
         .select('id, customer_id, linen_weight, created_at, customers(id, name, logo_url)')
@@ -108,26 +136,58 @@ export default function ProductionInfoPage() {
 
     console.log('[ProductionInfo] routes result:', routesRes.data, routesRes.error)
 
-    // Extract unique customers per day
     const routes = routesRes.data || []
-    const perDay = threeDays.map(dayName => {
-      const dayRoutes = routes.filter(r => r.day_of_week === dayName)
+
+    // Frequency: count distinct days per customer across all routes
+    const freqSets = new Map()
+    for (const route of (allRoutesRes.data || [])) {
+      for (const stop of (route.route_stops || [])) {
+        const cust = stop.customers || stop.locations?.customers
+        if (cust?.id) {
+          if (!freqSets.has(cust.id)) freqSets.set(cust.id, new Set())
+          freqSets.get(cust.id).add(route.day_of_week)
+        }
+      }
+    }
+    const freqMap = new Map()
+    for (const [id, days] of freqSets) {
+      freqMap.set(id, days.size)
+    }
+    setFrequencyMap(freqMap)
+
+    // Today's route groups (preserve route structure)
+    const todayRoutes = routes.filter(r => r.day_of_week === threeDays[0])
+    const groups = todayRoutes.map(route => {
+      const customers = []
+      const seen = new Set()
+      for (const stop of (route.route_stops || [])) {
+        const cust = stop.customers || stop.locations?.customers
+        if (cust?.id && cust.type !== 'wellness' && !seen.has(cust.id)) {
+          seen.add(cust.id)
+          customers.push(cust)
+        }
+      }
+      return { routeId: route.id, routeName: route.name, customers }
+    }).filter(g => g.customers.length > 0)
+    setTodayRouteGroups(groups)
+
+    // Tomorrow / day after — flat unique customer lists
+    const future = [1, 2].map(dayIdx => {
+      const dayRoutes = routes.filter(r => r.day_of_week === threeDays[dayIdx])
       const customerMap = new Map()
       for (const route of dayRoutes) {
         for (const stop of (route.route_stops || [])) {
           const cust = stop.customers || stop.locations?.customers
-          if (cust && cust.id && cust.type !== 'wellness') {
-            if (!customerMap.has(cust.id)) {
-              customerMap.set(cust.id, { ...cust, routeName: `${route.day_of_week.charAt(0).toUpperCase() + route.day_of_week.slice(1)} — ${route.name}` })
-            }
+          if (cust?.id && cust.type !== 'wellness' && !customerMap.has(cust.id)) {
+            customerMap.set(cust.id, { ...cust, routeName: `${capitalize(route.day_of_week)} — ${route.name}` })
           }
         }
       }
       return [...customerMap.values()]
     })
+    setFutureCustomers(future)
 
-    setDayCustomers(perDay)
-    setInProcessBins(binsRes.data || [])
+    setBins(binsRes.data || [])
     setProdLogs(logsRes.data || [])
     setLoading(false)
   }, [])
@@ -138,17 +198,18 @@ export default function ProductionInfoPage() {
     return () => clearInterval(interval)
   }, [fetchAll])
 
-  // Status for today's customers
-  const todayWithStatus = useMemo(() => {
-    return dayCustomers[0].map(cust => {
-      const hasInProcess = inProcessBins.some(b => b.customer_id === cust.id)
-      const custLogs = prodLogs.filter(l => l.customer_id === cust.id)
-      const hasLog = custLogs.length > 0
-      const lbsToday = custLogs.reduce((s, l) => s + (l.linen_weight || 0), 0)
-      const status = statusInfo(hasInProcess, hasLog)
-      return { ...cust, ...status, lbsToday, hasInProcess, hasLog }
+  // Today's route groups with status
+  const todayGroupsWithStatus = useMemo(() => {
+    return todayRouteGroups.map(group => {
+      const customersWithStatus = group.customers.map(cust => {
+        const custLogs = prodLogs.filter(l => l.customer_id === cust.id)
+        const status = getStatus(cust.id, bins, custLogs)
+        return { ...cust, ...status }
+      })
+      const readyCount = customersWithStatus.filter(c => c.label === 'Ready').length
+      return { ...group, customers: customersWithStatus, readyCount }
     })
-  }, [dayCustomers, inProcessBins, prodLogs])
+  }, [todayRouteGroups, bins, prodLogs])
 
   // Timeline
   const timeline = useMemo(() => {
@@ -166,7 +227,6 @@ export default function ProductionInfoPage() {
     const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
     const currentHour = nowET.getHours()
 
-    // Group logs by hour (ET)
     const hourBuckets = {}
     for (const log of prodLogs) {
       const d = new Date(new Date(log.created_at).toLocaleString('en-US', { timeZone: 'America/New_York' }))
@@ -174,7 +234,6 @@ export default function ProductionInfoPage() {
       hourBuckets[h] = (hourBuckets[h] || 0) + (log.linen_weight || 0)
     }
 
-    // Fill from 5 AM to current hour
     const data = []
     const startHour = 5
     const endHour = currentHour < startHour ? startHour : currentHour
@@ -187,8 +246,6 @@ export default function ProductionInfoPage() {
   if (loading) {
     return <div className="text-center py-12 text-gray-500">Loading production info...</div>
   }
-
-  const dayLabels = ['Today', 'Tomorrow', 'Day After']
 
   return (
     <div className="space-y-6">
@@ -204,36 +261,70 @@ export default function ProductionInfoPage() {
       <div className="space-y-5">
         <h3 className="text-md font-semibold text-gray-800">Rolling 3-Day Queue</h3>
 
-        {dayLabels.map((label, dayIdx) => {
-          const customers = dayIdx === 0 ? todayWithStatus : dayCustomers[dayIdx]
+        {/* Today — grouped by route */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-semibold text-gray-600">
+            Today — {capitalize(dayNames[0])}
+          </h4>
+          {todayGroupsWithStatus.length === 0 ? (
+            <p className="text-sm text-gray-400 italic">No customers scheduled</p>
+          ) : (
+            todayGroupsWithStatus.map(group => (
+              <div key={group.routeId} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-sm font-semibold text-gray-700">{group.routeName}</h5>
+                  <span className="text-xs font-medium text-gray-500">
+                    {group.readyCount}/{group.customers.length} Ready
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {group.customers.map(cust => (
+                    <div key={cust.id} className={`rounded-lg border p-3 ${cust.color}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">
+                          {cust.emoji} {cust.label}
+                        </span>
+                        <span className="text-xs font-medium text-blue-600 bg-blue-50 rounded px-2 py-0.5">
+                          {freqLabel(frequencyMap.get(cust.id))}
+                        </span>
+                      </div>
+                      {cust.detail && (
+                        <p className="text-xs text-gray-600 mb-2">{cust.detail}</p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <CustomerLogo url={cust.logo_url} name={cust.name} size={32} />
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">{cust.name}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Tomorrow & Day After */}
+        {['Tomorrow', 'Day After'].map((label, idx) => {
+          const customers = futureCustomers[idx]
           return (
             <div key={label}>
               <h4 className="text-sm font-semibold text-gray-600 mb-2">
-                {label} — {dayNames[dayIdx].charAt(0).toUpperCase() + dayNames[dayIdx].slice(1)}
+                {label} — {capitalize(dayNames[idx + 1])}
               </h4>
               {customers.length === 0 ? (
                 <p className="text-sm text-gray-400 italic">No customers scheduled</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {customers.map(cust => (
-                    <div
-                      key={cust.id}
-                      className={`rounded-lg border p-3 ${
-                        dayIdx === 0
-                          ? cust.color
-                          : 'border-gray-200 bg-white'
-                      }`}
-                    >
-                      {dayIdx === 0 && (
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">
-                            {cust.emoji} {cust.label}
-                          </span>
-                          <span className="text-sm font-bold text-gray-700">
-                            {cust.lbsToday} lbs
-                          </span>
-                        </div>
-                      )}
+                    <div key={cust.id} className="rounded-lg border border-gray-200 bg-white p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-gray-400 bg-gray-100 rounded px-2 py-0.5">Scheduled</span>
+                        <span className="text-xs font-medium text-blue-600 bg-blue-50 rounded px-2 py-0.5">
+                          {freqLabel(frequencyMap.get(cust.id))}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <CustomerLogo url={cust.logo_url} name={cust.name} size={32} />
                         <div className="min-w-0">
