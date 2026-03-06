@@ -18,6 +18,11 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Inline edit
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({ full_name: '', email: '' })
+  const [saving, setSaving] = useState(false)
+
   // Invite form
   const [showInvite, setShowInvite] = useState(false)
   const [invite, setInvite] = useState(emptyInvite)
@@ -88,6 +93,53 @@ export default function UsersPage() {
     setUsers((us) =>
       us.map((u) => u.id === userId ? { ...u, banned: !currentlyBanned } : u)
     )
+  }
+
+  function startEditing(user) {
+    setEditingId(user.id)
+    setEditForm({ full_name: user.full_name || '', email: user.email })
+  }
+
+  function cancelEditing() {
+    setEditingId(null)
+    setEditForm({ full_name: '', email: '' })
+  }
+
+  async function handleSaveEdit(userId) {
+    setSaving(true)
+    try {
+      const user = users.find((u) => u.id === userId)
+      const nameChanged = editForm.full_name !== (user.full_name || '')
+      const emailChanged = editForm.email !== user.email
+
+      if (nameChanged) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ full_name: editForm.full_name })
+          .eq('id', userId)
+        if (error) throw error
+      }
+
+      if (emailChanged) {
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+          email: editForm.email,
+        })
+        if (error) throw error
+      }
+
+      setUsers((us) =>
+        us.map((u) =>
+          u.id === userId
+            ? { ...u, full_name: editForm.full_name, email: editForm.email }
+            : u
+        )
+      )
+      setEditingId(null)
+    } catch (err) {
+      alert('Failed to save: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleInvite(e) {
@@ -224,44 +276,96 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} className={`border-b border-gray-100 ${u.banned ? 'bg-red-50/50' : ''}`}>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{u.full_name || '—'}</span>
-                        {u.banned && (
-                          <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                            Deactivated
-                          </span>
+                {users.map((u) => {
+                  const isEditing = editingId === u.id
+                  return (
+                    <tr key={u.id} className={`border-b border-gray-100 ${u.banned ? 'bg-red-50/50' : ''}`}>
+                      <td className="px-4 py-3">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editForm.full_name}
+                            onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                            className="w-full py-1.5 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900">{u.full_name || '—'}</span>
+                            {u.banned && (
+                              <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                                Deactivated
+                              </span>
+                            )}
+                          </div>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{u.email}</td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={u.role}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                        className="py-1.5 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleToggleBan(u.id, u.banned)}
-                        className={`min-h-[36px] px-3 text-sm font-medium rounded-md ${
-                          u.banned
-                            ? 'text-green-700 bg-green-50 hover:bg-green-100'
-                            : 'text-red-700 bg-red-50 hover:bg-red-100'
-                        }`}
-                      >
-                        {u.banned ? 'Reactivate' : 'Deactivate'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isEditing ? (
+                          <input
+                            type="email"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                            className="w-full py-1.5 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        ) : (
+                          <span className="text-gray-600">{u.email}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={u.role}
+                          onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                          className="py-1.5 px-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {isEditing ? (
+                            <>
+                              <button
+                                onClick={() => handleSaveEdit(u.id)}
+                                disabled={saving}
+                                className="min-h-[36px] px-3 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {saving ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                disabled={saving}
+                                className="min-h-[36px] px-3 text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => startEditing(u)}
+                                className="min-h-[36px] px-3 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleToggleBan(u.id, u.banned)}
+                                className={`min-h-[36px] px-3 text-sm font-medium rounded-md ${
+                                  u.banned
+                                    ? 'text-green-700 bg-green-50 hover:bg-green-100'
+                                    : 'text-red-700 bg-red-50 hover:bg-red-100'
+                                }`}
+                              >
+                                {u.banned ? 'Reactivate' : 'Deactivate'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
