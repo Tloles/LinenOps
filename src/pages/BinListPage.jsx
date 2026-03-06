@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router'
+import { Html5Qrcode } from 'html5-qrcode'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { STATUS_COLORS, statusLabel, BIN_COLORS } from '../lib/constants'
@@ -22,6 +23,46 @@ export default function BinListPage() {
   const [formError, setFormError] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
   const [showRemoved, setShowRemoved] = useState(false)
+  const [barcodeScanning, setBarcodeScanning] = useState(false)
+  const barcodeScannerRef = useRef(null)
+  const html5QrRef = useRef(null)
+
+  const stopBarcodeScanner = useCallback(async () => {
+    if (html5QrRef.current) {
+      try { await html5QrRef.current.stop() } catch {}
+      html5QrRef.current = null
+    }
+    setBarcodeScanning(false)
+  }, [])
+
+  async function startBarcodeScanner() {
+    setFormError(null)
+    const html5Qr = new Html5Qrcode('barcode-scanner-region')
+    html5QrRef.current = html5Qr
+    setBarcodeScanning(true)
+    try {
+      await html5Qr.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 300, height: 150 }, formatsToSupport: [0] },
+        (decodedText) => {
+          stopBarcodeScanner()
+          setBarcode(decodedText.trim())
+        },
+        () => {}
+      )
+    } catch {
+      setFormError('Could not start camera. Please check permissions or enter barcode manually.')
+      setBarcodeScanning(false)
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (html5QrRef.current) {
+        html5QrRef.current.stop().catch(() => {})
+      }
+    }
+  }, [])
 
   async function fetchBins() {
     let query = supabase
@@ -69,6 +110,7 @@ export default function BinListPage() {
   }
 
   function cancelForm() {
+    stopBarcodeScanner()
     setShowForm(false)
     setFormError(null)
     setFieldErrors({})
@@ -166,14 +208,35 @@ export default function BinListPage() {
             <label htmlFor="bin-barcode" className="block text-sm font-medium text-gray-700 mb-1">
               Barcode *
             </label>
-            <input
-              id="bin-barcode"
-              type="text"
-              required
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              placeholder="Scan or enter barcode"
-              className="w-full py-3 px-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            <div className="flex gap-2">
+              <input
+                id="bin-barcode"
+                type="text"
+                required
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                placeholder="Scan or enter barcode"
+                className="flex-1 py-3 px-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                type="button"
+                onClick={barcodeScanning ? stopBarcodeScanner : startBarcodeScanner}
+                className={`min-h-[48px] px-4 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  barcodeScanning
+                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    : 'bg-[#1B2541] text-white hover:bg-[#1B2541]/90'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 12h10M12 7v10" />
+                </svg>
+                <span className="hidden sm:inline text-sm">{barcodeScanning ? 'Stop' : 'Scan'}</span>
+              </button>
+            </div>
+            <div
+              id="barcode-scanner-region"
+              ref={barcodeScannerRef}
+              className={barcodeScanning ? 'mt-2 w-full rounded-lg overflow-hidden' : 'hidden'}
             />
           </div>
 
