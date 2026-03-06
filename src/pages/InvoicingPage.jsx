@@ -297,54 +297,58 @@ export default function InvoicingPage() {
     setInsightLoading(true)
     setInsightData(null)
 
-    const [logsRes, customerRes] = await Promise.all([
-      supabase.from('production_logs')
-        .select('id, linen_weight, invoice_amount, invoiced, created_at')
-        .eq('customer_id', customerId),
-      supabase.from('customers')
-        .select('id, name, logo_url')
-        .eq('id', customerId)
-        .single(),
-    ])
+    try {
+      const [logsRes, customerRes] = await Promise.all([
+        supabase.from('production_logs')
+          .select('id, linen_weight, invoice_amount, invoiced, created_at')
+          .eq('customer_id', customerId),
+        supabase.from('customers')
+          .select('id, name, logo_url')
+          .eq('id', customerId)
+          .single(),
+      ])
 
-    const allLogs = logsRes.data || []
-    const customer = customerRes.data
+      const allLogs = logsRes.data || []
+      const customer = customerRes.data
 
-    const totalDeliveries = allLogs.length
-    const totalLbs = allLogs.reduce((s, l) => s + (l.linen_weight || 0), 0)
-    const avgLbs = totalDeliveries > 0 ? Math.round(totalLbs / totalDeliveries) : 0
-    const totalRevenue = allLogs.reduce((s, l) => s + (l.invoice_amount || 0), 0)
-    const totalUnbilled = allLogs.filter(l => !l.invoiced).reduce((s, l) => s + (l.invoice_amount || 0), 0)
+      const totalDeliveries = allLogs.length
+      const totalLbs = allLogs.reduce((s, l) => s + (l.linen_weight || 0), 0)
+      const avgLbs = totalDeliveries > 0 ? Math.round(totalLbs / totalDeliveries) : 0
+      const totalRevenue = allLogs.reduce((s, l) => s + (l.invoice_amount || 0), 0)
+      const totalUnbilled = allLogs.filter(l => !l.invoiced).reduce((s, l) => s + (l.invoice_amount || 0), 0)
 
-    const sortedByDate = [...allLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    const lastDeliveryDate = sortedByDate[0]?.created_at || null
+      const sortedByDate = [...allLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      const lastDeliveryDate = sortedByDate[0]?.created_at || null
 
-    // Last 6 months monthly revenue
-    const now = new Date()
-    const monthlyRevenue = []
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const label = d.toLocaleString('default', { month: 'short', year: '2-digit' })
-      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1)
-      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
-      const rev = allLogs
-        .filter(l => {
-          const ld = new Date(l.created_at)
-          return ld >= monthStart && ld <= monthEnd
-        })
-        .reduce((s, l) => s + (l.invoice_amount || 0), 0)
-      monthlyRevenue.push({ month: label, revenue: rev })
+      // Last 6 months monthly revenue
+      const now = new Date()
+      const monthlyRevenue = []
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const label = d.toLocaleString('default', { month: 'short', year: '2-digit' })
+        const monthStart = new Date(d.getFullYear(), d.getMonth(), 1)
+        const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
+        const rev = allLogs
+          .filter(l => {
+            const ld = new Date(l.created_at)
+            return ld >= monthStart && ld <= monthEnd
+          })
+          .reduce((s, l) => s + (l.invoice_amount || 0), 0)
+        monthlyRevenue.push({ month: label, revenue: rev })
+      }
+
+      setInsightData({
+        customer,
+        totalDeliveries,
+        avgLbs,
+        totalRevenue,
+        totalUnbilled,
+        lastDeliveryDate,
+        monthlyRevenue,
+      })
+    } catch (err) {
+      console.error('fetchCustomerInsights error:', err)
     }
-
-    setInsightData({
-      customer,
-      totalDeliveries,
-      avgLbs,
-      totalRevenue,
-      totalUnbilled,
-      lastDeliveryDate,
-      monthlyRevenue,
-    })
     setInsightLoading(false)
   }
 
@@ -540,15 +544,14 @@ export default function InvoicingPage() {
                       {formatDate(log.created_at)}
                     </td>
                     <td className="py-2 px-3 border-b border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => fetchCustomerInsights(log.customer_id)}
-                        >
-                          <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={32} />
-                        </div>
-                        <span className="font-medium">{log.customers?.name}</span>
-                      </div>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity text-left"
+                        onClick={() => fetchCustomerInsights(log.customer_id)}
+                      >
+                        <CustomerLogo url={log.customers?.logo_url} name={log.customers?.name} size={32} />
+                        <span className="font-medium text-blue-700 underline decoration-blue-300">{log.customers?.name}</span>
+                      </button>
                     </td>
                     <td className="py-2 px-3 border-b border-slate-100 text-right font-medium">
                       {log.linen_weight || 0}
