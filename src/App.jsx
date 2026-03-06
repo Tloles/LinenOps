@@ -15,6 +15,7 @@ import StopPage from './pages/StopPage'
 import WashPage from './pages/WashPage'
 import WashInfoPage from './pages/WashInfoPage'
 import ProductionFormPage from './pages/ProductionFormPage'
+import UsersPage from './pages/UsersPage'
 
 function ProtectedRoute({ children }) {
   const { session, loading } = useAuth()
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="routes/today" element={<TodayRoutePage />} />
         <Route path="routes/today/:routeId" element={<DriverRoutePage />} />
         <Route path="routes/today/:routeId/stops/:stopId" element={<StopPage />} />
+        <Route path="users" element={<UsersPage />} />
       </Route>
     </Routes>
   )
