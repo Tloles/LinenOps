@@ -17,6 +17,7 @@ import WashInfoPage from './pages/WashInfoPage'
 import ProductionFormPage from './pages/ProductionFormPage'
 import UsersPage from './pages/UsersPage'
 import InvoicingPage from './pages/InvoicingPage'
+import ProductionInfoPage from './pages/ProductionInfoPage'
 
 function ProtectedRoute({ children }) {
   const { session, loading } = useAuth()
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="wash" element={<WashPage />} />
         <Route path="wash-info" element={<WashInfoPage />} />
         <Route path="production" element={<ProductionFormPage />} />
+        <Route path="production-info" element={<ProductionInfoPage />} />
         <Route path="bins" element={<BinListPage />} />
         <Route path="bins/:id" element={<BinDetailPage />} />
         <Route path="customers" element={<CustomersPage />} />

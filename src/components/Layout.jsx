@@ -54,7 +54,8 @@ export default function Layout() {
         {role !== 'driver' && <NavTab to="/bins">Bins</NavTab>}
         {role !== 'driver' && <NavTab to="/wash">Wash Form</NavTab>}
         {role !== 'driver' && <NavTab to="/wash-info">Wash Info</NavTab>}
-        {role !== 'driver' && <NavTab to="/production">Production</NavTab>}
+        {role !== 'driver' && <NavTab to="/production">Production Form</NavTab>}
+        {(role === 'owner' || role === 'manager') && <NavTab to="/production-info">Production Info</NavTab>}
         {(role === 'owner' || role === 'manager') && <NavTab to="/customers">Customers</NavTab>}
         {(role === 'owner' || role === 'manager') && <NavTab to="/invoicing">Invoicing</NavTab>}
         {role === 'owner' && <NavTab to="/users">Users</NavTab>}
