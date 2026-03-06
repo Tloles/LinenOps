@@ -490,7 +490,7 @@ export default function ProductionFormPage() {
       <tr key={idx}>
         {/* Left item name */}
         <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
-          <span className="text-sm font-medium">{left.name}</span>
+          <span className="text-sm font-bold">{left.name}</span>
           {leftEs && <br />}
           {leftEs && <span className="text-xs italic text-gray-500">{leftEs}</span>}
         </td>
@@ -509,7 +509,7 @@ export default function ProductionFormPage() {
         {/* Right item name (or shaded empty cell) */}
         {right ? (
           <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
-            <span className="text-sm font-medium">{right.name}</span>
+            <span className="text-sm font-bold">{right.name}</span>
             {rightEs && <br />}
             {rightEs && <span className="text-xs italic text-gray-500">{rightEs}</span>}
           </td>
@@ -655,7 +655,7 @@ export default function ProductionFormPage() {
                         /* Category header row */
                         <tr key={`hdr-${category}`}>
                           <td colSpan={4} className={`${cellBorder} text-center py-2`}>
-                            <span className="text-lg font-medium text-gray-900">{category}</span>
+                            <span className="text-base font-bold text-gray-900">{category}</span>
                           </td>
                         </tr>,
                         /* SKU pair rows */
@@ -669,7 +669,7 @@ export default function ProductionFormPage() {
                           <tbody>
                             <tr>
                               <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
-                                <span className="text-sm font-bold leading-tight sm:text-base">TOTAL<br />WEIGHT</span>
+                                <span className="text-sm font-bold">TOTAL<br />WEIGHT</span>
                               </td>
                               <td className={`${cellBorder} p-1 align-middle`} style={{ width: '16%' }}>
                                 <input
@@ -683,7 +683,7 @@ export default function ProductionFormPage() {
                                 />
                               </td>
                               <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
-                                <span className="text-sm font-bold leading-tight sm:text-base">CART<br />WEIGHT</span>
+                                <span className="text-sm font-bold">CART<br />WEIGHT</span>
                               </td>
                               <td className={`${cellBorder} p-1 align-middle`} style={{ width: '16%' }}>
                                 <input
@@ -697,7 +697,7 @@ export default function ProductionFormPage() {
                                 />
                               </td>
                               <td className={`${cellBorder} ${cellPad} text-center align-middle`}>
-                                <span className="text-sm font-bold leading-tight sm:text-base">LINEN<br />WEIGHT</span>
+                                <span className="text-sm font-bold">LINEN<br />WEIGHT</span>
                               </td>
                               <td className={`${cellBorder} ${cellPad} text-center align-middle`} style={{ width: '16%' }}>
                                 <span className="text-lg font-bold">{linenWeight !== null ? linenWeight : '—'}</span>
@@ -905,7 +905,7 @@ export default function ProductionFormPage() {
                     /* Category header */
                     <tr key={`print-hdr-${category}`}>
                       <td colSpan={4} className="border border-black text-center py-1.5">
-                        <span className="text-base">{category}</span>
+                        <span className="text-base font-bold">{category}</span>
                       </td>
                     </tr>,
                     /* Paired rows */
@@ -916,7 +916,7 @@ export default function ProductionFormPage() {
                         <tr key={`print-${category}-${idx}`}>
                           {/* Left name */}
                           <td className="border border-black px-2 py-1 text-center align-middle">
-                            <span className="font-medium">{left.name}</span>
+                            <span className="text-sm font-bold">{left.name}</span>
                             <br />
                             <span className="italic text-xs">{left.name_es}</span>
                           </td>
@@ -927,7 +927,7 @@ export default function ProductionFormPage() {
                           {/* Right name or shaded */}
                           {right ? (
                             <td className="border border-black px-2 py-1 text-center align-middle">
-                              <span className="font-medium">{right.name}</span>
+                              <span className="text-sm font-bold">{right.name}</span>
                               <br />
                               <span className="italic text-xs">{right.name_es}</span>
                             </td>
@@ -955,19 +955,19 @@ export default function ProductionFormPage() {
                       <tbody>
                         <tr>
                           <td className="border border-black px-2 py-2 text-center align-middle">
-                            <span className="text-xl font-bold leading-tight">TOTAL<br />WEIGHT</span>
+                            <span className="text-sm font-bold">TOTAL<br />WEIGHT</span>
                           </td>
                           <td className="border border-black px-2 py-2 text-center align-middle" style={{ width: '14%' }}>
                             <span className="text-lg font-bold">{printData.totalWeight || ''}</span>
                           </td>
                           <td className="border border-black px-2 py-2 text-center align-middle">
-                            <span className="text-xl font-bold leading-tight">CART<br />WEIGHT</span>
+                            <span className="text-sm font-bold">CART<br />WEIGHT</span>
                           </td>
                           <td className="border border-black px-2 py-2 text-center align-middle" style={{ width: '14%' }}>
                             <span className="text-lg font-bold">{printData.cartWeight || ''}</span>
                           </td>
                           <td className="border border-black px-2 py-2 text-center align-middle">
-                            <span className="text-xl font-bold leading-tight">LINEN<br />WEIGHT</span>
+                            <span className="text-sm font-bold">LINEN<br />WEIGHT</span>
                           </td>
                           <td className="border border-black px-2 py-2 text-center align-middle" style={{ width: '14%' }}>
                             <span className="text-lg font-bold">{printData.linenWeight || ''}</span>
