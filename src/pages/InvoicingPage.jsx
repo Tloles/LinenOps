@@ -291,6 +291,7 @@ export default function InvoicingPage() {
 
   // Customer insights
   async function fetchCustomerInsights(customerId) {
+    console.log('fetchCustomerInsights called with customerId:', customerId)
     setInsightCustomerId(customerId)
     setInsightLoading(true)
     setInsightData(null)
