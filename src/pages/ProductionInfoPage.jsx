@@ -86,6 +86,8 @@ export default function ProductionInfoPage() {
   const fetchAll = useCallback(async () => {
     const prodDayStartISO = getProdDayStart()
     const threeDays = getThreeDayNames()
+    const [day0, day1, day2] = threeDays
+    console.log('[ProductionInfo] fetching data, days:', day0, day1, day2)
     setDayNames(threeDays)
 
     const [routesRes, binsRes, logsRes] = await Promise.all([
@@ -103,6 +105,8 @@ export default function ProductionInfoPage() {
         .gte('created_at', prodDayStartISO)
         .order('created_at', { ascending: true }),
     ])
+
+    console.log('[ProductionInfo] routes result:', routesRes.data, routesRes.error)
 
     // Extract unique customers per day
     const routes = routesRes.data || []
