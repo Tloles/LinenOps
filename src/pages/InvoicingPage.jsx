@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import CustomerLogo from '../components/CustomerLogo'
@@ -715,8 +716,8 @@ export default function InvoicingPage() {
         </div>
       )}
 
-      {/* Customer Insights Slide-Out Panel */}
-      {insightCustomerId && (
+      {/* Customer Insights Slide-Out Panel — portaled to body */}
+      {insightCustomerId && createPortal(
         <>
           {/* Backdrop */}
           <div
@@ -798,7 +799,8 @@ export default function InvoicingPage() {
               ) : null}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   )
