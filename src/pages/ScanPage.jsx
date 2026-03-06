@@ -169,20 +169,22 @@ export default function ScanPage() {
         canvas.height = h
         ctx.drawImage(video, 0, 0, w, h)
 
-        // Grayscale + contrast boost for colored/low-contrast labels
+        // Binary threshold: grayscale then black/white at midpoint 128
         const imageData = ctx.getImageData(0, 0, w, h)
         const data = imageData.data
         for (let i = 0; i < data.length; i += 4) {
           const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
-          const boosted = Math.min(255, Math.max(0, (gray - 128) * 1.5 + 128))
-          data[i] = data[i + 1] = data[i + 2] = boosted
+          const bw = gray < 128 ? 0 : 255
+          data[i] = data[i + 1] = data[i + 2] = bw
         }
         ctx.putImageData(imageData, 0, 0)
 
+        console.log('[Scanner] decode attempt', w, 'x', h)
         try {
           const luminance = new HTMLCanvasElementLuminanceSource(canvas)
           const bitmap = new BinaryBitmap(new HybridBinarizer(luminance))
           const result = coreReader.decode(bitmap)
+          console.log('[Scanner] decoded:', result.getText())
           // Decoded successfully — stop and handle
           if (frameLoopRef.current) {
             cancelAnimationFrame(frameLoopRef.current)
