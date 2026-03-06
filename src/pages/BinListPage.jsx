@@ -42,7 +42,7 @@ export default function BinListPage() {
     setBarcodeScanning(true)
     try {
       await html5Qr.start(
-        { facingMode: 'environment' },
+        { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, advanced: [{ focusMode: 'continuous' }] },
         { fps: 10, qrbox: { width: 300, height: 150 }, formatsToSupport: [0] },
         (decodedText) => {
           stopBarcodeScanner()
