@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { HTMLCanvasElementLuminanceSource } from '@zxing/browser'
-import { DecodeHintType, MultiFormatReader, BinaryBitmap, HybridBinarizer } from '@zxing/library'
+import Quagga from 'quagga'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { STATUS_COLORS, statusLabel, NEXT_STATUS, SCAN_STATUSES } from '../lib/constants'
@@ -24,9 +23,7 @@ export default function ScanPage() {
   const [binTruckMap, setBinTruckMap] = useState({})
   const [torchOn, setTorchOn] = useState(false)
   const scannerRef = useRef(null)
-  const canvasRef = useRef(null)
-  const frameLoopRef = useRef(null)
-  const html5QrRef = useRef(null)
+  const quaggaRunning = useRef(false)
 
   const fetchSummaryBins = useCallback(async () => {
     const { data } = await supabase
@@ -96,31 +93,24 @@ export default function ScanPage() {
   }, [fetchTruckData])
 
   const stopScanner = useCallback(() => {
-    if (frameLoopRef.current) {
-      cancelAnimationFrame(frameLoopRef.current)
-      frameLoopRef.current = null
+    if (quaggaRunning.current) {
+      Quagga.stop()
+      quaggaRunning.current = false
     }
-    const video = scannerRef.current
-    if (video?.srcObject) {
-      video.srcObject.getTracks().forEach(t => t.stop())
-      video.srcObject = null
-    }
-    html5QrRef.current = null
     setTorchOn(false)
     setScanning(false)
   }, [])
 
   useEffect(() => {
     return () => {
-      if (frameLoopRef.current) cancelAnimationFrame(frameLoopRef.current)
-      const video = scannerRef.current
-      if (video?.srcObject) {
-        video.srcObject.getTracks().forEach(t => t.stop())
+      if (quaggaRunning.current) {
+        Quagga.stop()
+        quaggaRunning.current = false
       }
     }
   }, [])
 
-  async function startScanner() {
+  function startScanner() {
     setError(null)
     setBin(null)
     setSuccess(null)
@@ -128,92 +118,51 @@ export default function ScanPage() {
     setTorchOn(false)
     setScanning(true)
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      })
-
-      const video = scannerRef.current
-      video.srcObject = stream
-      await video.play()
-
-      const hints = new Map()
-      hints.set(DecodeHintType.TRY_HARDER, true)
-
-      const coreReader = new MultiFormatReader()
-      coreReader.setHints(hints)
-      html5QrRef.current = { stop: () => stream.getTracks().forEach(t => t.stop()) }
-
-      const canvas = canvasRef.current
-      const ctx = canvas.getContext('2d', { willReadFrequently: true })
-
-      let lastDecode = 0
-      function decodeFrame(timestamp) {
-        if (!scannerRef.current?.srcObject) return
-
-        // Throttle processing to ~12fps
-        if (timestamp - lastDecode < 83) {
-          frameLoopRef.current = requestAnimationFrame(decodeFrame)
-          return
-        }
-        lastDecode = timestamp
-
-        const w = video.videoWidth
-        const h = video.videoHeight
-        if (w === 0 || h === 0) {
-          frameLoopRef.current = requestAnimationFrame(decodeFrame)
-          return
-        }
-
-        canvas.width = w
-        canvas.height = h
-        ctx.drawImage(video, 0, 0, w, h)
-
-        // Binary threshold: grayscale then black/white at midpoint 128
-        const imageData = ctx.getImageData(0, 0, w, h)
-        const data = imageData.data
-        for (let i = 0; i < data.length; i += 4) {
-          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
-          const bw = gray < 128 ? 0 : 255
-          data[i] = data[i + 1] = data[i + 2] = bw
-        }
-        ctx.putImageData(imageData, 0, 0)
-
-        console.log('[Scanner] decode attempt', w, 'x', h)
-        try {
-          const luminance = new HTMLCanvasElementLuminanceSource(canvas)
-          const bitmap = new BinaryBitmap(new HybridBinarizer(luminance))
-          const result = coreReader.decode(bitmap)
-          console.log('[Scanner] decoded:', result.getText())
-          // Decoded successfully — stop and handle
-          if (frameLoopRef.current) {
-            cancelAnimationFrame(frameLoopRef.current)
-            frameLoopRef.current = null
-          }
-          stream.getTracks().forEach(t => t.stop())
-          video.srcObject = null
-          html5QrRef.current = null
-          setTorchOn(false)
+    Quagga.init(
+      {
+        inputStream: {
+          type: 'LiveStream',
+          target: scannerRef.current,
+          constraints: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        },
+        frequency: 10,
+        decoder: {
+          readers: ['code_128_reader'],
+        },
+        locate: true,
+      },
+      (err) => {
+        if (err) {
+          console.error('[Quagga] init error:', err)
+          setError('Could not start camera. Please check permissions or use manual entry.')
           setScanning(false)
-          handleBarcodeScan(result.getText())
           return
-        } catch {
-          // No barcode found in this frame, continue
         }
-
-        frameLoopRef.current = requestAnimationFrame(decodeFrame)
+        Quagga.start()
+        quaggaRunning.current = true
+        console.log('[Quagga] scanner started')
       }
+    )
 
-      frameLoopRef.current = requestAnimationFrame(decodeFrame)
-    } catch {
-      setError('Could not start camera. Please check permissions or use manual entry.')
+    Quagga.onDetected((result) => {
+      const code = result?.codeResult?.code
+      if (!code) return
+      console.log('[Quagga] decoded:', code)
+      Quagga.stop()
+      quaggaRunning.current = false
+      setTorchOn(false)
       setScanning(false)
-    }
+      handleBarcodeScan(code)
+    })
   }
 
   async function toggleTorch() {
     try {
-      const video = scannerRef.current
+      const video = scannerRef.current?.querySelector('video')
       if (!video?.srcObject) return
       const track = video.srcObject.getVideoTracks()[0]
       if (!track) return
@@ -413,14 +362,13 @@ export default function ScanPage() {
           {/* Camera scanner */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="relative">
-              <video
+              <div
                 ref={scannerRef}
                 className={scanning ? 'w-full' : 'hidden'}
-                playsInline
-                muted
+                style={scanning ? { position: 'relative', overflow: 'hidden' } : undefined}
               />
               {scanning && (
-                <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 10 }}>
                   <div
                     className="absolute left-[10%] right-[10%] top-[30%] bottom-[30%] border-2 border-white/80 rounded-lg"
                     style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}
@@ -435,7 +383,6 @@ export default function ScanPage() {
                   </p>
                 </div>
               )}
-              <canvas ref={canvasRef} className="hidden" />
             </div>
             {!scanning && (
               <button
