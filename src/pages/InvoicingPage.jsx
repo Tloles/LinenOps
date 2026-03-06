@@ -2,6 +2,16 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import CustomerLogo from '../components/CustomerLogo'
 
+// Map sku_key to display name and category
+const SPECIALTY_KEYS = {
+  comforter: 'Comforter',
+  shower_curtain: 'Shower Curtain',
+  pillow: 'Pillow',
+  blanket: 'Blanket',
+  robe: 'Robe',
+  bed_skirt: 'Bed Skirt',
+}
+
 export default function InvoicingPage() {
   const [customers, setCustomers] = useState([])
   const [logs, setLogs] = useState([])
@@ -51,16 +61,17 @@ export default function InvoicingPage() {
         const logIds = data.map(l => l.id)
         const { data: items } = await supabase
           .from('production_log_items')
-          .select('production_log_id, quantity, hotel_skus(name, category)')
+          .select('production_log_id, sku_key, quantity')
           .in('production_log_id', logIds)
 
         if (items) {
           const grouped = {}
           for (const item of items) {
-            if (item.hotel_skus?.category === 'Special Items' && item.quantity > 0) {
+            // Only include specialty items
+            if (SPECIALTY_KEYS[item.sku_key] && item.quantity > 0) {
               if (!grouped[item.production_log_id]) grouped[item.production_log_id] = []
               grouped[item.production_log_id].push({
-                name: item.hotel_skus.name,
+                name: SPECIALTY_KEYS[item.sku_key],
                 quantity: item.quantity,
               })
             }

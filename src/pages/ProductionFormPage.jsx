@@ -8,29 +8,40 @@ const CATEGORY_ORDER = ['Flatwork', 'Towels', 'Special Items']
 
 const PRINT_SKUS = {
   Flatwork: [
-    { name: 'Duvet – King Size', name_es: 'Funda de Edredón– Rey Talla' },
-    { name: 'Duvet – Queen Size', name_es: 'Funda de Edredón– Reina Talla' },
-    { name: 'Flat Sheet – King Size', name_es: 'Sábana plana – Rey Talla' },
-    { name: 'Flat Sheet – Queen Size', name_es: 'Sábana plana – Reina Talla' },
-    { name: 'Pillow Case – King Size', name_es: 'Funda de almohada – Rey Talla' },
-    { name: 'Pillow Case – Queen Size', name_es: 'Funda de almohada – Reina Talla' },
-    { name: 'Fitted Sheet', name_es: 'Sábana elástico' },
+    { key: 'duvet_king', name: 'Duvet – King Size', name_es: 'Funda de Edredón– Rey Talla' },
+    { key: 'duvet_queen', name: 'Duvet – Queen Size', name_es: 'Funda de Edredón– Reina Talla' },
+    { key: 'flat_sheet_king', name: 'Flat Sheet – King Size', name_es: 'Sábana plana – Rey Talla' },
+    { key: 'flat_sheet_queen', name: 'Flat Sheet – Queen Size', name_es: 'Sábana plana – Reina Talla' },
+    { key: 'pillow_case_king', name: 'Pillow Case – King Size', name_es: 'Funda de almohada – Rey Talla' },
+    { key: 'pillow_case_queen', name: 'Pillow Case – Queen Size', name_es: 'Funda de almohada – Reina Talla' },
+    { key: 'fitted_sheet', name: 'Fitted Sheet', name_es: 'Sábana elástico' },
   ],
   Towels: [
-    { name: 'Bath Towel', name_es: 'Toalla de baño' },
-    { name: 'Hand Towel', name_es: 'Toalla de mano' },
-    { name: 'Wash Cloth', name_es: 'Toalla de lavado' },
-    { name: 'Bath Mat', name_es: 'Alfombra de baño' },
-    { name: 'Pool Towel', name_es: 'Toalla de piscina' },
+    { key: 'bath_towel', name: 'Bath Towel', name_es: 'Toalla de baño' },
+    { key: 'hand_towel', name: 'Hand Towel', name_es: 'Toalla de mano' },
+    { key: 'wash_cloth', name: 'Wash Cloth', name_es: 'Toalla de lavado' },
+    { key: 'bath_mat', name: 'Bath Mat', name_es: 'Alfombra de baño' },
+    { key: 'pool_towel', name: 'Pool Towel', name_es: 'Toalla de piscina' },
   ],
   'Special Items': [
-    { name: 'Comforter', name_es: 'Edredón' },
-    { name: 'Shower Curtain', name_es: 'Cortina de la ducha' },
-    { name: 'Pillow', name_es: 'Almohada' },
-    { name: 'Blanket', name_es: 'Cobjia' },
-    { name: 'Robe', name_es: 'Bata' },
-    { name: 'Bed Skirt', name_es: 'Faldón' },
+    { key: 'comforter', name: 'Comforter', name_es: 'Edredón' },
+    { key: 'shower_curtain', name: 'Shower Curtain', name_es: 'Cortina de la ducha' },
+    { key: 'pillow', name: 'Pillow', name_es: 'Almohada' },
+    { key: 'blanket', name: 'Blanket', name_es: 'Cobjia' },
+    { key: 'robe', name: 'Robe', name_es: 'Bata' },
+    { key: 'bed_skirt', name: 'Bed Skirt', name_es: 'Faldón' },
   ],
+}
+
+// Flat list of all SKUs with their category
+const ALL_SKUS = CATEGORY_ORDER.flatMap(cat =>
+  PRINT_SKUS[cat].map(item => ({ ...item, category: cat }))
+)
+
+// Pre-computed pairs by category for rendering
+const SKU_PAIRS_BY_CATEGORY = {}
+for (const cat of CATEGORY_ORDER) {
+  SKU_PAIRS_BY_CATEGORY[cat] = chunkPairs(PRINT_SKUS[cat])
 }
 
 function chunkPairs(arr) {
@@ -65,7 +76,6 @@ export default function ProductionFormPage() {
   const html5QrRef = useRef(null)
 
   // Step 2 — SKU form (hotel/limited service/specialty)
-  const [hotelSkus, setHotelSkus] = useState([])
   const [skuQuantities, setSkuQuantities] = useState({})
 
   // Step 3 — Wellness
@@ -98,18 +108,6 @@ export default function ProductionFormPage() {
   const isHotelType = customer && (customer.type === 'hotel' || customer.type === 'limited_service' || customer.type === 'specialty')
   const isWellness = customer && customer.type === 'wellness'
 
-  // Fetch hotel SKUs once
-  useEffect(() => {
-    async function fetchSkus() {
-      const { data } = await supabase
-        .from('hotel_skus')
-        .select('*')
-        .order('sort_order')
-      if (data) setHotelSkus(data)
-    }
-    fetchSkus()
-  }, [])
-
   // Fetch recent production logs (last 24h)
   const fetchRecentLogs = useCallback(async () => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
@@ -134,24 +132,23 @@ export default function ProductionFormPage() {
       const custType = log.customers?.type
       const isHotel = custType === 'hotel' || custType === 'limited_service' || custType === 'specialty'
 
-      if (isHotel && hotelSkus.length > 0) {
+      if (isHotel) {
         // Fetch line items for this log
         const { data: items } = await supabase
           .from('production_log_items')
-          .select('hotel_sku_id, quantity')
+          .select('sku_key, quantity')
           .eq('production_log_id', log.id)
 
         const qtyMap = {}
         if (items) {
           for (const item of items) {
-            qtyMap[item.hotel_sku_id] = item.quantity
+            qtyMap[item.sku_key] = item.quantity
           }
         }
 
         const printPairs = {}
         for (const cat of CATEGORY_ORDER) {
-          const catSkus = hotelSkus.filter(s => s.category === cat)
-          const withQty = catSkus.map(s => ({ ...s, quantity: qtyMap[s.id] || 0 }))
+          const withQty = PRINT_SKUS[cat].map(s => ({ ...s, quantity: qtyMap[s.key] || 0 }))
           printPairs[cat] = chunkPairs(withQty)
         }
 
@@ -195,13 +192,13 @@ export default function ProductionFormPage() {
     if (isHotel) {
       const { data: items } = await supabase
         .from('production_log_items')
-        .select('hotel_sku_id, quantity')
+        .select('sku_key, quantity')
         .eq('production_log_id', log.id)
 
       const qtyMap = {}
       if (items) {
         for (const item of items) {
-          qtyMap[item.hotel_sku_id] = item.quantity
+          qtyMap[item.sku_key] = item.quantity
         }
       }
       setSkuQuantities(qtyMap)
@@ -242,15 +239,6 @@ export default function ProductionFormPage() {
     const d = new Date(ts)
     return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
   }
-
-  // Group SKUs by category, then chunk into pairs
-  const skuPairsByCategory = useMemo(() => {
-    const groups = {}
-    for (const cat of CATEGORY_ORDER) {
-      groups[cat] = chunkPairs(hotelSkus.filter(s => s.category === cat))
-    }
-    return groups
-  }, [hotelSkus])
 
   // Scanner helpers
   const stopScanner = useCallback(async () => {
@@ -366,27 +354,33 @@ export default function ProductionFormPage() {
       let linenChargeVal = 0
       let specialtyChargeVal = 0
 
-      const { data: pricing } = await supabase
+      const { data: pricing, error: pricingError } = await supabase
         .from('customer_pricing')
         .select('*')
         .eq('customer_id', customer.id)
         .maybeSingle()
 
+      console.log('[Invoice] customer_pricing fetch:', { pricing, pricingError, customerId: customer.id })
+
       if (pricing) {
+        console.log('[Invoice] billing_type:', pricing.billing_type, 'rate_per_lb:', pricing.rate_per_lb, 'lw:', lw)
         if (pricing.billing_type === 'weight') {
           linenChargeVal = lw * (pricing.rate_per_lb || 0)
+          console.log('[Invoice] linenChargeVal:', linenChargeVal)
 
           // Fetch specialty pricing for Special Items category
-          const { data: specialtyRates } = await supabase
+          const { data: specialtyRates, error: specError } = await supabase
             .from('specialty_pricing')
             .select('*')
 
+          console.log('[Invoice] specialty_pricing fetch:', { specialtyRates, specError })
+
           if (specialtyRates) {
-            const specialtySkus = hotelSkus.filter(s => s.category === 'Special Items')
-            for (const sku of specialtySkus) {
-              const qty = skuQuantities[sku.id] || 0
+            for (const sku of PRINT_SKUS['Special Items']) {
+              const qty = skuQuantities[sku.key] || 0
               if (qty > 0) {
                 const rate = specialtyRates.find(r => r.sku_name === sku.name)
+                console.log('[Invoice] specialty match:', { skuName: sku.name, qty, rate })
                 if (rate) specialtyChargeVal += qty * rate.price_per_piece
               }
             }
@@ -398,10 +392,10 @@ export default function ProductionFormPage() {
             const sc = parseInt(sheetCount, 10) || 0
             invoiceAmount = sc * (pricing.piece_rate || 0)
           } else {
-            // Find the hotel_sku matching piece_item name
-            const pieceSku = hotelSkus.find(s => s.name === pricing.piece_item)
+            // Find the SKU matching piece_item name
+            const pieceSku = ALL_SKUS.find(s => s.name === pricing.piece_item)
             if (pieceSku) {
-              const qty = skuQuantities[pieceSku.id] || 0
+              const qty = skuQuantities[pieceSku.key] || 0
               invoiceAmount = qty * (pricing.piece_rate || 0)
             }
           }
@@ -409,6 +403,8 @@ export default function ProductionFormPage() {
           specialtyChargeVal = 0
         }
       }
+
+      console.log('[Invoice] FINAL:', { invoiceAmount, linenChargeVal, specialtyChargeVal })
 
       const logRow = {
         customer_id: customer.id,
@@ -455,9 +451,9 @@ export default function ProductionFormPage() {
       if (isHotelType) {
         const items = Object.entries(skuQuantities)
           .filter(([, qty]) => qty > 0)
-          .map(([skuId, qty]) => ({
+          .map(([skuKey, qty]) => ({
             production_log_id: logId,
-            hotel_sku_id: skuId,
+            sku_key: skuKey,
             quantity: qty,
           }))
 
@@ -473,8 +469,7 @@ export default function ProductionFormPage() {
       if (isHotelType) {
         const printPairs = {}
         for (const cat of CATEGORY_ORDER) {
-          const catSkus = hotelSkus.filter(s => s.category === cat)
-          const withQty = catSkus.map(s => ({ ...s, quantity: skuQuantities[s.id] || 0 }))
+          const withQty = PRINT_SKUS[cat].map(s => ({ ...s, quantity: skuQuantities[s.key] || 0 }))
           printPairs[cat] = chunkPairs(withQty)
         }
 
@@ -558,10 +553,10 @@ export default function ProductionFormPage() {
             type="number"
             inputMode="numeric"
             min={0}
-            value={skuQuantities[left.id] ?? ''}
-            onChange={(e) => handleSkuChange(left.id, e.target.value)}
+            value={skuQuantities[left.key] ?? ''}
+            onChange={(e) => handleSkuChange(left.key, e.target.value)}
             placeholder=""
-            className="w-full h-12 text-center text-lg font-bold border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            className="w-full h-12 text-center text-lg font-bold border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
           />
         </td>
         {/* Right item name (or shaded empty cell) */}
@@ -581,10 +576,10 @@ export default function ProductionFormPage() {
               type="number"
               inputMode="numeric"
               min={0}
-              value={skuQuantities[right.id] ?? ''}
-              onChange={(e) => handleSkuChange(right.id, e.target.value)}
+              value={skuQuantities[right.key] ?? ''}
+              onChange={(e) => handleSkuChange(right.key, e.target.value)}
               placeholder=""
-              className="w-full h-12 text-center text-lg font-bold border-0 bg-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+              className="w-full h-12 text-center text-lg font-bold border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
             />
           </td>
         ) : (
@@ -707,7 +702,7 @@ export default function ProductionFormPage() {
                 <table className="w-full border-collapse">
                   <tbody>
                     {CATEGORY_ORDER.map(category => {
-                      const pairs = skuPairsByCategory[category]
+                      const pairs = SKU_PAIRS_BY_CATEGORY[category]
                       if (!pairs || pairs.length === 0) return null
                       return [
                         /* Category header row */
