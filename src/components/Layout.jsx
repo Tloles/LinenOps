@@ -27,9 +27,9 @@ const SIDEBAR_SECTIONS = [
     label: 'OPERATIONS',
     items: [
       { to: '/scan', label: 'Scan Cart', icon: QrCode, show: () => true },
-      { to: '/bins', label: 'Cart Management', icon: Package, show: r => r !== 'driver' },
       { to: '/wash', label: 'Wash Form', icon: FileText, show: r => r !== 'driver' },
       { to: '/production', label: 'Production Form', icon: ClipboardList, show: r => r !== 'driver' },
+      { to: '/bins', label: 'Cart Management', icon: Package, show: r => r !== 'driver' },
     ],
   },
   {
