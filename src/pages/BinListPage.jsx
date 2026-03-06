@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router'
-import { Html5Qrcode } from 'html5-qrcode'
+import { BrowserMultiFormatReader } from '@zxing/browser'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { STATUS_COLORS, statusLabel, BIN_COLORS } from '../lib/constants'
@@ -27,9 +27,9 @@ export default function BinListPage() {
   const barcodeScannerRef = useRef(null)
   const html5QrRef = useRef(null)
 
-  const stopBarcodeScanner = useCallback(async () => {
+  const stopBarcodeScanner = useCallback(() => {
     if (html5QrRef.current) {
-      try { await html5QrRef.current.stop() } catch {}
+      html5QrRef.current.stop()
       html5QrRef.current = null
     }
     setBarcodeScanning(false)
@@ -37,19 +37,22 @@ export default function BinListPage() {
 
   async function startBarcodeScanner() {
     setFormError(null)
-    const html5Qr = new Html5Qrcode('barcode-scanner-region')
-    html5QrRef.current = html5Qr
     setBarcodeScanning(true)
     try {
-      await html5Qr.start(
-        { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, advanced: [{ focusMode: 'continuous' }] },
-        { fps: 10, qrbox: { width: 300, height: 150 }, formatsToSupport: [0] },
-        (decodedText) => {
-          stopBarcodeScanner()
-          setBarcode(decodedText.trim())
-        },
-        () => {}
+      const reader = new BrowserMultiFormatReader()
+      const controls = await reader.decodeFromConstraints(
+        { video: { facingMode: 'environment' } },
+        barcodeScannerRef.current,
+        (result) => {
+          if (result) {
+            html5QrRef.current?.stop()
+            html5QrRef.current = null
+            setBarcodeScanning(false)
+            setBarcode(result.getText().trim())
+          }
+        }
       )
+      html5QrRef.current = controls
     } catch {
       setFormError('Could not start camera. Please check permissions or enter barcode manually.')
       setBarcodeScanning(false)
@@ -59,7 +62,7 @@ export default function BinListPage() {
   useEffect(() => {
     return () => {
       if (html5QrRef.current) {
-        html5QrRef.current.stop().catch(() => {})
+        html5QrRef.current.stop()
       }
     }
   }, [])
@@ -233,8 +236,7 @@ export default function BinListPage() {
                 <span className="hidden sm:inline text-sm">{barcodeScanning ? 'Stop' : 'Scan'}</span>
               </button>
             </div>
-            <div
-              id="barcode-scanner-region"
+            <video
               ref={barcodeScannerRef}
               className={barcodeScanning ? 'mt-2 w-full rounded-lg overflow-hidden' : 'hidden'}
             />

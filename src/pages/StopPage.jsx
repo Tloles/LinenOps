@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { Html5Qrcode } from 'html5-qrcode'
+import { BrowserMultiFormatReader } from '@zxing/browser'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { statusLabel, NEXT_STATUS } from '../lib/constants'
@@ -21,6 +21,7 @@ export default function StopPage() {
   const [manualBarcode, setManualBarcode] = useState('')
   const [tally, setTally] = useState({ delivered: 0, picked_up: 0 })
   const html5QrRef = useRef(null)
+  const scannerRef = useRef(null)
 
   // Wellness stop state
   const [shelfCount, setShelfCount] = useState('')
@@ -30,7 +31,7 @@ export default function StopPage() {
     fetchStopData()
     return () => {
       if (html5QrRef.current) {
-        html5QrRef.current.stop().catch(() => {})
+        html5QrRef.current.stop()
       }
     }
   }, [stopId])
@@ -81,13 +82,9 @@ export default function StopPage() {
 
   // ── Hotel stop: scanner logic ──
 
-  const stopScanner = useCallback(async () => {
+  const stopScanner = useCallback(() => {
     if (html5QrRef.current) {
-      try {
-        await html5QrRef.current.stop()
-      } catch {
-        // scanner may already be stopped
-      }
+      html5QrRef.current.stop()
       html5QrRef.current = null
     }
     setScanning(false)
@@ -95,24 +92,23 @@ export default function StopPage() {
 
   async function startScanner() {
     setMessage(null)
-    const html5Qr = new Html5Qrcode('stop-scanner-region')
-    html5QrRef.current = html5Qr
     setScanning(true)
 
     try {
-      await html5Qr.start(
-        { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, advanced: [{ focusMode: 'continuous' }] },
-        {
-          fps: 10,
-          qrbox: { width: 300, height: 150 },
-          formatsToSupport: [0], // CODE_128
-        },
-        (decodedText) => {
-          stopScanner()
-          handleScan(decodedText)
-        },
-        () => {}
+      const reader = new BrowserMultiFormatReader()
+      const controls = await reader.decodeFromConstraints(
+        { video: { facingMode: 'environment' } },
+        scannerRef.current,
+        (result) => {
+          if (result) {
+            html5QrRef.current?.stop()
+            html5QrRef.current = null
+            setScanning(false)
+            handleScan(result.getText())
+          }
+        }
       )
+      html5QrRef.current = controls
     } catch {
       setMessage({ type: 'error', text: 'Could not start camera. Use manual entry.' })
       setScanning(false)
@@ -317,8 +313,8 @@ export default function StopPage() {
 
           {/* Scanner */}
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div
-              id="stop-scanner-region"
+            <video
+              ref={scannerRef}
               className={scanning ? 'w-full' : 'hidden'}
             />
             {!scanning && (

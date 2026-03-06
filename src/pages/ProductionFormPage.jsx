@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
-import { Html5Qrcode } from 'html5-qrcode'
+import { BrowserMultiFormatReader } from '@zxing/browser'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CustomerLogo from '../components/CustomerLogo'
@@ -261,9 +261,9 @@ export default function ProductionFormPage() {
   }
 
   // Scanner helpers
-  const stopScanner = useCallback(async () => {
+  const stopScanner = useCallback(() => {
     if (html5QrRef.current) {
-      try { await html5QrRef.current.stop() } catch { /* already stopped */ }
+      html5QrRef.current.stop()
       html5QrRef.current = null
     }
     setScanning(false)
@@ -272,7 +272,7 @@ export default function ProductionFormPage() {
   useEffect(() => {
     return () => {
       if (html5QrRef.current) {
-        html5QrRef.current.stop().catch(() => {})
+        html5QrRef.current.stop()
       }
     }
   }, [])
@@ -282,21 +282,23 @@ export default function ProductionFormPage() {
     setBin(null)
     setCustomer(null)
     setSuccess(null)
-
-    const html5Qr = new Html5Qrcode('prod-scanner-region')
-    html5QrRef.current = html5Qr
     setScanning(true)
 
     try {
-      await html5Qr.start(
-        { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, advanced: [{ focusMode: 'continuous' }] },
-        { fps: 10, qrbox: { width: 300, height: 150 }, formatsToSupport: [0] },
-        (decodedText) => {
-          stopScanner()
-          handleBarcodeScan(decodedText)
-        },
-        () => {}
+      const reader = new BrowserMultiFormatReader()
+      const controls = await reader.decodeFromConstraints(
+        { video: { facingMode: 'environment' } },
+        scannerRef.current,
+        (result) => {
+          if (result) {
+            html5QrRef.current?.stop()
+            html5QrRef.current = null
+            setScanning(false)
+            handleBarcodeScan(result.getText())
+          }
+        }
       )
+      html5QrRef.current = controls
     } catch {
       setError('Could not start camera. Please check permissions or use manual entry.')
       setScanning(false)
@@ -679,8 +681,7 @@ export default function ProductionFormPage() {
         {!bin && !lookingUp && (
           <>
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div
-                id="prod-scanner-region"
+              <video
                 ref={scannerRef}
                 className={scanning ? 'w-full' : 'hidden'}
               />
