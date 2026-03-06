@@ -56,10 +56,12 @@ export default function BinListPage() {
     fetchCustomers()
   }, [showRemoved])
 
+  const TARE_WEIGHTS = [135, 145, 155, 163]
+
   function openAddForm() {
     setBarcode('')
     setColor('')
-    setTareWeight('')
+    setTareWeight('135')
     setCustomerId('')
     setFormError(null)
     setFieldErrors({})
@@ -78,13 +80,21 @@ export default function BinListPage() {
     setFieldErrors({})
     setSaving(true)
 
+    const parsedWeight = parseFloat(tareWeight)
+    if (!parsedWeight || parsedWeight <= 0) {
+      setFormError('Please enter a Tare Weight before registering this bin.')
+      setFieldErrors({ tareWeight: true })
+      setSaving(false)
+      return
+    }
+
     try {
       const { data: bin, error: binError } = await supabase
         .from('bins')
         .insert({
           barcode,
           color: color || null,
-          tare_weight: parseFloat(tareWeight),
+          tare_weight: parsedWeight,
           customer_id: customerId || null,
           current_status: 'clean_staged',
         })
@@ -202,21 +212,50 @@ export default function BinListPage() {
           </div>
 
           <div>
-            <label htmlFor="bin-tare" className={`block text-sm font-medium mb-1 ${fieldErrors.tareWeight ? 'text-red-700' : 'text-gray-700'}`}>
+            <label className={`block text-sm font-medium mb-2 ${fieldErrors.tareWeight ? 'text-red-700' : 'text-gray-700'}`}>
               Tare Weight (lbs) *
             </label>
-            <input
-              id="bin-tare"
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              min="0"
-              required
-              value={tareWeight}
-              onChange={(e) => { setTareWeight(e.target.value); setFieldErrors(prev => ({ ...prev, tareWeight: false })) }}
-              placeholder="e.g. 135"
-              className={`w-full py-3 px-3 text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${fieldErrors.tareWeight ? 'border-red-500' : 'border-gray-300'}`}
-            />
+            <div className="flex flex-wrap gap-2">
+              {TARE_WEIGHTS.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => { setTareWeight(String(w)); setFieldErrors(prev => ({ ...prev, tareWeight: false })) }}
+                  className={`min-h-[48px] px-5 text-base font-medium rounded-lg border-2 transition-colors ${
+                    tareWeight === String(w)
+                      ? 'bg-[#1B2541] text-white border-[#1B2541]'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  {w}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => { setTareWeight('other'); setFieldErrors(prev => ({ ...prev, tareWeight: false })) }}
+                className={`min-h-[48px] px-5 text-base font-medium rounded-lg border-2 transition-colors ${
+                  tareWeight === 'other' || (tareWeight && !TARE_WEIGHTS.includes(Number(tareWeight)))
+                    ? 'bg-[#1B2541] text-white border-[#1B2541]'
+                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                Other
+              </button>
+            </div>
+            {(tareWeight === 'other' || (tareWeight && !TARE_WEIGHTS.includes(Number(tareWeight)) && tareWeight !== '')) && (
+              <input
+                id="bin-tare"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                autoFocus
+                value={tareWeight === 'other' ? '' : tareWeight}
+                onChange={(e) => { setTareWeight(e.target.value || 'other'); setFieldErrors(prev => ({ ...prev, tareWeight: false })) }}
+                placeholder="Enter weight"
+                className={`mt-2 w-full py-3 px-3 text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${fieldErrors.tareWeight ? 'border-red-500' : 'border-gray-300'}`}
+              />
+            )}
           </div>
 
           <div>
