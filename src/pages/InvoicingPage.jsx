@@ -71,22 +71,38 @@ export default function InvoicingPage() {
 
   // Fetch summary totals
   const fetchSummaryTotals = useCallback(async () => {
-    const now = new Date()
-    const todayStr = now.toISOString().slice(0, 10)
+    // Production day cutoff: 5 AM Eastern (America/New_York)
+    // If before 5 AM ET, the "production day" started at 5 AM yesterday
+    const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+    const nowUTC = new Date()
 
-    // Monday of this week
-    const day = now.getDay()
-    const monday = new Date(now)
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
-    const mondayStr = monday.toISOString().slice(0, 10)
+    // ET offset in ms (difference between UTC and ET right now)
+    const etOffsetMs = nowUTC.getTime() - nowET.getTime()
+
+    // Build 5 AM ET today as a Date in local/UTC terms
+    const fiveAMToday = new Date(nowET)
+    fiveAMToday.setHours(5, 0, 0, 0)
+    // Convert back to UTC
+    const fiveAMTodayUTC = new Date(fiveAMToday.getTime() + etOffsetMs)
+
+    // Production day start: 5 AM ET today if we're past it, otherwise 5 AM ET yesterday
+    const prodDayStart = nowUTC >= fiveAMTodayUTC
+      ? fiveAMTodayUTC
+      : new Date(fiveAMTodayUTC.getTime() - 24 * 60 * 60 * 1000)
+
+    // Production week: last 7 production days
+    const prodWeekStart = new Date(prodDayStart.getTime() - 6 * 24 * 60 * 60 * 1000)
+
+    const prodDayISO = prodDayStart.toISOString()
+    const prodWeekISO = prodWeekStart.toISOString()
 
     const [producedToday, producedThisWeek, invoicedThisWeek, unbilled] = await Promise.all([
       supabase.from('production_logs').select('invoice_amount')
-        .gte('created_at', todayStr + 'T00:00:00').lte('created_at', todayStr + 'T23:59:59'),
+        .gte('created_at', prodDayISO),
       supabase.from('production_logs').select('invoice_amount')
-        .gte('created_at', mondayStr + 'T00:00:00'),
+        .gte('created_at', prodWeekISO),
       supabase.from('production_logs').select('invoice_amount').eq('invoiced', true)
-        .gte('created_at', mondayStr + 'T00:00:00'),
+        .gte('created_at', prodWeekISO),
       supabase.from('production_logs').select('invoice_amount').eq('invoiced', false),
     ])
 
