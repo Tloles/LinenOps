@@ -31,10 +31,10 @@ export default function InvoicingPage() {
 
   // Summary cards
   const [summaryData, setSummaryData] = useState({
-    totalUnbilled: 0,
-    invoicedToday: 0,
+    producedToday: 0,
+    producedThisWeek: 0,
     invoicedThisWeek: 0,
-    invoicedThisMonth: 0,
+    totalUnbilled: 0,
   })
 
   // Checkboxes & bulk actions
@@ -80,25 +80,22 @@ export default function InvoicingPage() {
     monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
     const mondayStr = monday.toISOString().slice(0, 10)
 
-    // 1st of this month
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
-
-    const [unbilled, today, week, month] = await Promise.all([
-      supabase.from('production_logs').select('invoice_amount').eq('invoiced', false),
-      supabase.from('production_logs').select('invoice_amount').eq('invoiced', true)
+    const [producedToday, producedThisWeek, invoicedThisWeek, unbilled] = await Promise.all([
+      supabase.from('production_logs').select('invoice_amount')
         .gte('created_at', todayStr + 'T00:00:00').lte('created_at', todayStr + 'T23:59:59'),
-      supabase.from('production_logs').select('invoice_amount').eq('invoiced', true)
+      supabase.from('production_logs').select('invoice_amount')
         .gte('created_at', mondayStr + 'T00:00:00'),
       supabase.from('production_logs').select('invoice_amount').eq('invoiced', true)
-        .gte('created_at', monthStart + 'T00:00:00'),
+        .gte('created_at', mondayStr + 'T00:00:00'),
+      supabase.from('production_logs').select('invoice_amount').eq('invoiced', false),
     ])
 
     const sum = (arr) => (arr || []).reduce((s, r) => s + (r.invoice_amount || 0), 0)
     setSummaryData({
+      producedToday: sum(producedToday.data),
+      producedThisWeek: sum(producedThisWeek.data),
+      invoicedThisWeek: sum(invoicedThisWeek.data),
       totalUnbilled: sum(unbilled.data),
-      invoicedToday: sum(today.data),
-      invoicedThisWeek: sum(week.data),
-      invoicedThisMonth: sum(month.data),
     })
   }, [])
 
@@ -363,10 +360,10 @@ export default function InvoicingPage() {
   }
 
   const summaryCards = [
+    { label: 'Produced Today', value: summaryData.producedToday, color: 'border-green-400', bg: 'bg-green-50', text: 'text-green-700' },
+    { label: 'Produced This Week', value: summaryData.producedThisWeek, color: 'border-blue-400', bg: 'bg-blue-50', text: 'text-blue-700' },
+    { label: 'Invoiced This Week', value: summaryData.invoicedThisWeek, color: 'border-indigo-400', bg: 'bg-indigo-50', text: 'text-indigo-700' },
     { label: 'Total Unbilled', value: summaryData.totalUnbilled, color: 'border-amber-400', bg: 'bg-amber-50', text: 'text-amber-700' },
-    { label: 'Invoiced Today', value: summaryData.invoicedToday, color: 'border-green-400', bg: 'bg-green-50', text: 'text-green-700' },
-    { label: 'Invoiced This Week', value: summaryData.invoicedThisWeek, color: 'border-blue-400', bg: 'bg-blue-50', text: 'text-blue-700' },
-    { label: 'Invoiced This Month', value: summaryData.invoicedThisMonth, color: 'border-indigo-400', bg: 'bg-indigo-50', text: 'text-indigo-700' },
   ]
 
   return (
