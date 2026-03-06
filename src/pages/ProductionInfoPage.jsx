@@ -6,7 +6,7 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
 function getProdDayStart() {
   const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
@@ -118,7 +118,7 @@ export default function ProductionInfoPage() {
           const cust = stop.customers || stop.locations?.customers
           if (cust && cust.id && cust.type !== 'wellness') {
             if (!customerMap.has(cust.id)) {
-              customerMap.set(cust.id, { ...cust, routeName: `${route.day_of_week} — ${route.name}` })
+              customerMap.set(cust.id, { ...cust, routeName: `${route.day_of_week.charAt(0).toUpperCase() + route.day_of_week.slice(1)} — ${route.name}` })
             }
           }
         }
@@ -209,7 +209,7 @@ export default function ProductionInfoPage() {
           return (
             <div key={label}>
               <h4 className="text-sm font-semibold text-gray-600 mb-2">
-                {label} — {dayNames[dayIdx]}
+                {label} — {dayNames[dayIdx].charAt(0).toUpperCase() + dayNames[dayIdx].slice(1)}
               </h4>
               {customers.length === 0 ? (
                 <p className="text-sm text-gray-400 italic">No customers scheduled</p>
