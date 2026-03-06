@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import CustomerLogo from '../components/CustomerLogo'
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis,
+  BarChart, Bar, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
@@ -15,6 +15,43 @@ const SPECIALTY_KEYS = {
   blanket: 'Blanket',
   robe: 'Robe',
   bed_skirt: 'Bed Skirt',
+}
+
+function RevenueTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-white rounded-lg shadow-lg border border-gray-100 px-4 py-3">
+      <p className="text-xs font-medium text-gray-500 mb-1">{label}</p>
+      <p className="text-sm font-bold text-gray-900">
+        ${Number(payload[0].value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </p>
+    </div>
+  )
+}
+
+function LbsTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-white rounded-lg shadow-lg border border-gray-100 px-4 py-3">
+      <p className="text-xs font-medium text-gray-500 mb-1">{label}</p>
+      <p className="text-sm font-bold text-gray-900">
+        {Number(payload[0].value).toLocaleString()} lbs
+      </p>
+    </div>
+  )
+}
+
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function fmtShortDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr + 'T12:00:00')
+  return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`
+}
+
+function fmtAxisDollar(val) {
+  if (val >= 1000) return '$' + (val / 1000).toFixed(val >= 10000 ? 0 : 1) + 'k'
+  return '$' + val
 }
 
 export default function InvoicingPage() {
@@ -335,7 +372,7 @@ export default function InvoicingPage() {
     return Object.entries(groups)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([period, revenue]) => ({
-        period: trendPeriod === 'weekly' ? period : new Date(period + '-01').toLocaleString('default', { month: 'short', year: '2-digit' }),
+        period: trendPeriod === 'weekly' ? fmtShortDate(period) : new Date(period + '-01').toLocaleString('default', { month: 'short', year: '2-digit' }),
         revenue: Math.round(revenue * 100) / 100,
       }))
   }, [logs, trendPeriod])
@@ -361,7 +398,7 @@ export default function InvoicingPage() {
     }
     return Object.entries(groups)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, lbs]) => ({ date, lbs }))
+      .map(([date, lbs]) => ({ date: fmtShortDate(date), lbs }))
   }, [logs])
 
   function fmt(val) {
@@ -597,60 +634,78 @@ export default function InvoicingPage() {
           <h3 className="text-md font-semibold text-gray-900">Trends</h3>
 
           {/* Revenue Over Time - full width */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-sm font-semibold text-gray-700">Revenue Over Time</h4>
-              <div className="flex gap-1">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-5">
+              <h4 className="text-sm font-semibold text-gray-800">Revenue Over Time</h4>
+              <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
                 <button
                   onClick={() => setTrendPeriod('weekly')}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium ${trendPeriod === 'weekly' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${trendPeriod === 'weekly' ? 'bg-white text-[#1e3a5f] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   Weekly
                 </button>
                 <button
                   onClick={() => setTrendPeriod('monthly')}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium ${trendPeriod === 'monthly' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  className={`px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${trendPeriod === 'monthly' ? 'bg-white text-[#1e3a5f] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   Monthly
                 </button>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={revenueOverTime}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(v) => ['$' + v.toFixed(2), 'Revenue']} />
-                <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <BarChart data={revenueOverTime} barCategoryGap="20%">
+                <defs>
+                  <linearGradient id="gradNavy" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#1e3a5f" stopOpacity={1} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#f0f0f0" strokeDasharray="none" vertical={false} />
+                <XAxis dataKey="period" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} tickFormatter={fmtAxisDollar} />
+                <Tooltip content={<RevenueTooltip />} cursor={{ fill: 'rgba(30,58,95,0.04)' }} />
+                <Bar dataKey="revenue" fill="url(#gradNavy)" radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out" />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           {/* Side by side: Revenue by Customer + Lbs Over Time */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-4">Revenue by Customer</h4>
-              <ResponsiveContainer width="100%" height={Math.max(200, revenueByCustomer.length * 40)}>
-                <BarChart data={revenueByCustomer} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} />
-                  <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={120} />
-                  <Tooltip formatter={(v) => ['$' + v.toFixed(2), 'Revenue']} />
-                  <Bar dataKey="revenue" fill="#6366f1" radius={[0, 4, 4, 0]} />
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <h4 className="text-sm font-semibold text-gray-800 mb-5">Revenue by Customer</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={revenueByCustomer} barCategoryGap="25%">
+                  <defs>
+                    <linearGradient id="gradBlue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.9} />
+                      <stop offset="100%" stopColor="#1e3a5f" stopOpacity={1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#f0f0f0" strokeDasharray="none" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} interval={0} angle={revenueByCustomer.length > 5 ? -30 : 0} textAnchor={revenueByCustomer.length > 5 ? 'end' : 'middle'} height={revenueByCustomer.length > 5 ? 60 : 30} />
+                  <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} tickFormatter={fmtAxisDollar} />
+                  <Tooltip content={<RevenueTooltip />} cursor={{ fill: 'rgba(30,58,95,0.04)' }} />
+                  <Bar dataKey="revenue" fill="url(#gradBlue)" radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-4">Lbs Over Time</h4>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <h4 className="text-sm font-semibold text-gray-800 mb-5">Lbs Over Time</h4>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={lbsOverTime}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="lbs" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
+                <AreaChart data={lbsOverTime}>
+                  <defs>
+                    <linearGradient id="gradTeal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#f0f0f0" strokeDasharray="none" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} tickFormatter={(v) => v + ' lbs'} />
+                  <Tooltip content={<LbsTooltip />} cursor={{ stroke: '#10b981', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                  <Area type="monotone" dataKey="lbs" stroke="#10b981" strokeWidth={2.5} fill="url(#gradTeal)" dot={{ r: 3, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} animationDuration={800} animationEasing="ease-out" />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -721,12 +776,18 @@ export default function InvoicingPage() {
                   <div>
                     <h5 className="text-sm font-semibold text-gray-700 mb-3">Monthly Revenue (Last 6 Months)</h5>
                     <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={insightData.monthlyRevenue}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v) => ['$' + v.toFixed(2), 'Revenue']} />
-                        <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      <BarChart data={insightData.monthlyRevenue} barCategoryGap="20%">
+                        <defs>
+                          <linearGradient id="gradInsight" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
+                            <stop offset="100%" stopColor="#10b981" stopOpacity={1} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="#f0f0f0" strokeDasharray="none" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} tickFormatter={fmtAxisDollar} />
+                        <Tooltip content={<RevenueTooltip />} cursor={{ fill: 'rgba(16,185,129,0.06)' }} />
+                        <Bar dataKey="revenue" fill="url(#gradInsight)" radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
