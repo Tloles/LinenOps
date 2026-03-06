@@ -302,7 +302,7 @@ export default function ScanPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">Scan Cart</h2>
+      <h2 className="text-[28px] font-bold text-[#1e3a5f]">Scan Cart</h2>
 
       {/* Success message */}
       {success && (

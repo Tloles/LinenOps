@@ -154,7 +154,7 @@ export default function WashInfoPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">Wash Info</h2>
+      <h2 className="text-[28px] font-bold text-[#1e3a5f]">Wash Info</h2>
 
       {/* Washer Utilization (today only) — always visible at top */}
       <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">

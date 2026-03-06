@@ -427,7 +427,7 @@ export default function InvoicingPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">Invoicing</h2>
+      <h2 className="text-[28px] font-bold text-[#1e3a5f]">Invoicing</h2>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

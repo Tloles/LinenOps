@@ -38,7 +38,7 @@ export default function TodayRoutePage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">Today's Routes</h2>
+      <h2 className="text-[28px] font-bold text-[#1e3a5f]">Today's Routes</h2>
       <p className="text-sm text-gray-500">{todayLabel}</p>
 
       {routes.length === 0 && (

@@ -659,7 +659,7 @@ export default function ProductionFormPage() {
     <>
       {/* ════════════ SCREEN FORM ════════════ */}
       <div className="space-y-4 no-print">
-        <h2 className="text-lg font-semibold text-gray-900">Production Form</h2>
+        <h2 className="text-[28px] font-bold text-[#1e3a5f]">Production Form</h2>
 
         {success && (
           <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-green-800 font-medium text-center text-lg">

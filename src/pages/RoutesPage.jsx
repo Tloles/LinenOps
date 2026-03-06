@@ -264,7 +264,7 @@ export default function RoutesPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">Route Management</h2>
+      <h2 className="text-[28px] font-bold text-[#1e3a5f]">Route Management</h2>
 
       {/* Error banner */}
       {error && (

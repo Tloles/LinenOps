@@ -184,7 +184,7 @@ export default function BinListPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Cart Management</h2>
+        <h2 className="text-[28px] font-bold text-[#1e3a5f]">Cart Management</h2>
         {role !== 'driver' && !showForm && (
           <button
             onClick={openAddForm}

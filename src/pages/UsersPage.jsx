@@ -178,7 +178,7 @@ export default function UsersPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Users</h2>
+        <h2 className="text-[28px] font-bold text-[#1e3a5f]">Users</h2>
         {!showInvite && (
           <button
             onClick={() => { setShowInvite(true); setInviteError(null); setInviteSuccess(null) }}
