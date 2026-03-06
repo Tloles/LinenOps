@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { Fragment, useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -416,7 +416,7 @@ export default function ProductionFormPage() {
           if (specialtyRates) {
             for (const sku of PRINT_SKUS['Special Items']) {
               const qty = skuQuantities[sku.key] || 0
-              const rate = specialtyRates.find(r => r.sku_name?.toLowerCase() === sku.name.toLowerCase())
+              const rate = specialtyRates.find(r => r.item_name === sku.key)
               console.log(`[Invoice] specialty "${sku.name}" (key=${sku.key}): qty=${qty}, matchedRate=`, rate)
               if (qty > 0 && rate) {
                 const charge = qty * rate.price_per_piece
@@ -750,16 +750,18 @@ export default function ProductionFormPage() {
                     {CATEGORY_ORDER.map(category => {
                       const pairs = SKU_PAIRS_BY_CATEGORY[category]
                       if (!pairs || pairs.length === 0) return null
-                      return [
-                        /* Category header row */
-                        <tr key={`hdr-${category}`}>
-                          <td colSpan={4} className={`${cellBorder} text-center py-2`}>
-                            <span className="text-base font-bold text-gray-900">{category}</span>
-                          </td>
-                        </tr>,
-                        /* SKU pair rows */
-                        ...pairs.map((pair, idx) => renderSkuRow(pair, `${category}-${idx}`))
-                      ]
+                      return (
+                        <Fragment key={category}>
+                          {/* Category header row */}
+                          <tr>
+                            <td colSpan={4} className={`${cellBorder} text-center py-2`}>
+                              <span className="text-base font-bold text-gray-900">{category}</span>
+                            </td>
+                          </tr>
+                          {/* SKU pair rows */}
+                          {pairs.map((pair, idx) => renderSkuRow(pair, `${category}-${idx}`))}
+                        </Fragment>
+                      )
                     })}
                     {/* Weight row — 6 columns matching physical form */}
                     <tr>
