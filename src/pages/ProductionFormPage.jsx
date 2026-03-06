@@ -4,8 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import CustomerLogo from '../components/CustomerLogo'
 
-const WHITE_SAIL_LOGO = supabase.storage.from('logos').getPublicUrl('white-sail-logo.png').data.publicUrl
-
 const CATEGORY_ORDER = ['Flatwork', 'Towels', 'Special Items']
 
 const PRINT_SKUS = {
@@ -610,18 +608,8 @@ export default function ProductionFormPage() {
         {bin && customer && (
           <div className="space-y-4">
 
-            {/* Header row 1: WS logo | Title | Customer logo */}
+            {/* Header: CLIENT+DATE+CART | Title | Customer logo */}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="grid grid-cols-3 items-center gap-2 mb-3">
-                <div className="flex justify-start">
-                  <img src={WHITE_SAIL_LOGO} alt="White Sail" style={{ height: 60 }} />
-                </div>
-                <h3 className="text-[28px] font-bold text-gray-900 text-center">Linen Cart Manifest</h3>
-                <div className="flex justify-end">
-                  <CustomerLogo url={customer.logo_url} name={customer.name} size={80} />
-                </div>
-              </div>
-              {/* Header row 2: CLIENT+DATE | (empty) | CART */}
               <div className="grid grid-cols-3 items-center gap-2">
                 <div className="space-y-1">
                   <p className="text-lg">
@@ -632,13 +620,18 @@ export default function ProductionFormPage() {
                     <span className="font-bold">DATE:</span>{' '}
                     <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{todayFormatted()}</span>
                   </p>
-                </div>
-                <div />
-                <div className="text-right">
                   <p className="text-lg">
                     <span className="font-bold">CART:</span>{' '}
                     <span className="text-gray-800 underline underline-offset-4 decoration-gray-300">{bin.barcode}</span>
                   </p>
+                </div>
+                <h3 className="text-[28px] font-bold text-gray-900 text-center">Linen Cart Manifest</h3>
+                <div className="flex justify-end">
+                  {customer.logo_url ? (
+                    <img src={customer.logo_url} alt={customer.name} style={{ height: 90, objectFit: 'contain' }} />
+                  ) : (
+                    <span className="font-medium text-gray-700 text-lg">{customer.name}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -867,39 +860,29 @@ export default function ProductionFormPage() {
       {printData && (
         <div className="print-only p-4">
           <div className="max-w-2xl mx-auto">
-            {/* Row 1: WS logo | Title | Customer logo */}
-            <div className="mb-2" style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ flex: 1 }}>
-                <img src={WHITE_SAIL_LOGO} alt="White Sail" style={{ height: 50 }} />
-              </div>
-              <div style={{ flex: 1, textAlign: 'center' }}>
-                <h1 className="font-bold" style={{ fontSize: '24px', margin: 0 }}>Linen Cart Manifest</h1>
-              </div>
-              <div style={{ flex: 1, textAlign: 'right' }}>
-                {printData.customerLogoUrl && (
-                  <img src={printData.customerLogoUrl} alt={printData.customerName} style={{ height: 50, display: 'inline-block' }} />
-                )}
-              </div>
-            </div>
-
-            {/* Row 2: CLIENT+DATE | (empty) | CART */}
+            {/* Header: CLIENT+DATE+CART | Title | Customer logo */}
             <div className="mb-2" style={{ display: 'flex', alignItems: 'center', fontSize: '16px' }}>
               <div style={{ flex: 1 }}>
                 <p className="mb-0.5">
                   <span className="font-bold">CLIENT:</span>{' '}
                   <span className="underline underline-offset-4">{printData.customerName}</span>
                 </p>
-                <p>
+                <p className="mb-0.5">
                   <span className="font-bold">DATE:</span>{' '}
                   <span className="underline underline-offset-4">{printData.date}</span>
                 </p>
-              </div>
-              <div style={{ flex: 1 }} />
-              <div style={{ flex: 1, textAlign: 'right' }}>
                 <p>
                   <span className="font-bold">CART:</span>{' '}
                   <span className="underline underline-offset-4">{printData.barcode}</span>
                 </p>
+              </div>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                <h1 className="font-bold" style={{ fontSize: '24px', margin: 0 }}>Linen Cart Manifest</h1>
+              </div>
+              <div style={{ flex: 1, textAlign: 'right' }}>
+                {printData.customerLogoUrl && (
+                  <img src={printData.customerLogoUrl} alt={printData.customerName} style={{ height: 80, objectFit: 'contain', display: 'inline-block' }} />
+                )}
               </div>
             </div>
 
