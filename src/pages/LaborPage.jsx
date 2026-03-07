@@ -146,18 +146,6 @@ export default function LaborPage() {
         todayTs = Array.isArray(todayData) ? todayData : []
       }
 
-      // Debug: log first entry and any entries for Dolores/Jacky
-      if (tsArray.length > 0) {
-        console.log('First timesheet entry:', JSON.stringify(tsArray[0], null, 2))
-      }
-      const debugNames = ['dolores', 'jacky', 'jackeline']
-      for (const ts of tsArray) {
-        const name = (ts.user?.name || ts.user?.fname || '').toLowerCase()
-        if (debugNames.some(d => name.includes(d))) {
-          console.log(`Debug timesheet for ${name}:`, JSON.stringify(ts, null, 2))
-        }
-      }
-
       setUsers(usersArray)
       setGroups(Array.isArray(groupsData) ? groupsData : [])
       setTimesheets(tsArray)
@@ -215,19 +203,17 @@ export default function LaborPage() {
   const today = now.toISOString().slice(0, 10)
 
   // --- SECTION 1: ACTIVE NOW ---
+  // An employee is active if any timesheetProjection has status === 'in_progress'
   const activeEmployees = useMemo(() => {
     const seen = new Set()
     const result = []
 
-    // Open punches from today's timesheets: has clock-in but no clock-out
-    const openPunches = todayTimesheets.filter(ts => {
-      const start = ts.dtstart || ts.clockIn
-      if (!start) return false
-      const hasEnd = ts.dtend || ts.clockOut
-      return !hasEnd
-    })
+    for (const ts of todayTimesheets) {
+      const projections = ts.timesheetProjections
+      if (!Array.isArray(projections) || projections.length === 0) continue
+      const isActive = projections.some(p => p.status === 'in_progress')
+      if (!isActive) continue
 
-    for (const ts of openPunches) {
       const userId = ts.user?.id || ts.userId
       if (!userId || seen.has(userId)) continue
       if (!isRostered(ts)) continue
@@ -235,8 +221,8 @@ export default function LaborPage() {
 
       const user = userMap[userId]
       const entry = getRosterEntry(ts)
-      const start = ts.dtstart || ts.clockIn
-      const hoursElapsed = start ? Math.max(0, (now - new Date(start)) / 3600000) : 0
+      const clockIn = projections[0].clockIn
+      const hoursElapsed = clockIn ? Math.max(0, (now - new Date(clockIn)) / 3600000) : 0
 
       result.push({
         id: userId,
@@ -286,28 +272,35 @@ export default function LaborPage() {
   }, [timesheets, userMap, getUserName, getRosterEntry, isRostered, today])
 
   // --- SECTION 3: COMPLETED ---
+  // Use timesheetProjections for status: completed shifts have clockIn + clockOut
   const completedShifts = useMemo(() => {
     const seen = new Set()
     const { from } = getDateRange(dateRange)
-    return timesheets.filter(ts => {
-      const start = ts.dtstart || ts.clockIn
-      const end = ts.dtend || ts.clockOut
-      if (!start || !end) return false
-      if (new Date(start).toISOString().slice(0, 10) < from) return false
-      if (!isRostered(ts)) return false
+    const results = []
+
+    for (const ts of timesheets) {
+      const projections = ts.timesheetProjections
+      if (!Array.isArray(projections) || projections.length === 0) continue
+      // Skip if any projection is still in_progress (active, not completed)
+      if (projections.some(p => p.status === 'in_progress')) continue
+
+      const proj = projections[0]
+      const clockIn = proj.clockIn
+      const clockOut = proj.clockOut
+      if (!clockIn || !clockOut) continue
+      if (new Date(clockIn).toISOString().slice(0, 10) < from) continue
+      if (!isRostered(ts)) continue
+
       const userId = ts.user?.id || ts.userId
-      const key = `${userId}-${start}`
-      if (seen.has(key)) return false
+      const key = `${userId}-${clockIn}`
+      if (seen.has(key)) continue
       seen.add(key)
-      return true
-    }).map(ts => {
-      const userId = ts.user?.id || ts.userId
+
       const user = userMap[userId]
       const entry = getRosterEntry(ts)
-      const start = new Date(ts.dtstart || ts.clockIn)
-      const end = new Date(ts.dtend || ts.clockOut)
-      const hours = Math.max(0, (end - start) / 3600000)
-      return {
+      const hours = Math.max(0, (new Date(clockOut) - new Date(clockIn)) / 3600000)
+
+      results.push({
         id: userId,
         name: getUserName(ts),
         section: ROLE_SECTIONS[entry?.primaryRole] || '',
@@ -315,8 +308,9 @@ export default function LaborPage() {
         flexRoles: entry?.flexRoles || '',
         hours,
         cost: hours * getPayRate(user, ts),
-      }
-    })
+      })
+    }
+    return results
   }, [timesheets, userMap, getUserName, getRosterEntry, isRostered, dateRange])
 
   const completedTotals = useMemo(() => {
