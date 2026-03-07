@@ -2,16 +2,19 @@ const TOKEN = process.env.SLING_TOKEN
 const ORG_ID = process.env.SLING_ORG_ID
 
 async function slingFetch(url) {
+  console.log('Sling fetch:', url)
   const res = await fetch(url, {
     headers: { Authorization: TOKEN },
   })
 
+  const text = await res.text()
+  console.log(`Sling response (${res.status}) from ${url}:`, text.slice(0, 500))
+
   if (!res.ok) {
-    const text = await res.text()
     throw new Error(`Sling API error (${res.status}): ${text}`)
   }
 
-  return res.json()
+  return JSON.parse(text)
 }
 
 export default async function handler(req, res) {
@@ -31,7 +34,22 @@ export default async function handler(req, res) {
     if (action === 'users') {
       data = await slingFetch(`${base}/users`)
     } else if (action === 'positions') {
-      data = await slingFetch(`${base}/positions`)
+      // Try multiple endpoints — Sling API varies
+      const urls = [
+        `${base}/positions`,
+        `${base}/users/positions`,
+        `https://api.getsling.com/v1/positions`,
+      ]
+      for (const url of urls) {
+        try {
+          data = await slingFetch(url)
+          console.log('Positions succeeded with:', url)
+          break
+        } catch (err) {
+          console.log('Positions failed with:', url, err.message)
+          if (url === urls[urls.length - 1]) throw err
+        }
+      }
     } else if (action === 'timesheets') {
       if (!from || !to) {
         return res.status(400).json({ error: 'timesheets requires ?from=YYYY-MM-DD&to=YYYY-MM-DD' })

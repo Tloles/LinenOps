@@ -44,9 +44,9 @@ function fmtHrs(h) {
 }
 
 const ROLES = [
-  { key: 'logistics', label: 'Logistics', emoji: '🚛', match: p => /driver/i.test(p) },
-  { key: 'washing', label: 'Washing', emoji: '🫧', match: p => /linen production washing/i.test(p) },
-  { key: 'production', label: 'Production', emoji: '⚙️', match: p => /linen production pressing/i.test(p) || /linen production lead/i.test(p) },
+  { key: 'logistics', label: 'Logistics', emoji: '🚛', match: p => p.split(', ').some(n => n === 'Driver') },
+  { key: 'washing', label: 'Washing', emoji: '🫧', match: p => p.split(', ').some(n => n === 'Linen Production Washing') },
+  { key: 'production', label: 'Production', emoji: '⚙️', match: p => p.split(', ').some(n => n === 'Linen Production Pressing' || n === 'Linen Production Lead') },
 ]
 
 export default function LaborPage() {
