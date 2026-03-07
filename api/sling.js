@@ -49,12 +49,6 @@ export default async function handler(req, res) {
       // GET /v1/reports/timesheets — actual clock-in/out data
       // Sling uses ISO8601 interval with exclusive end date
       data = await slingFetch(`${base}/reports/timesheets?dates=${from}/${nextDay(to)}`)
-    } else if (action === 'labor-cost') {
-      if (!from || !to) {
-        return res.status(400).json({ error: 'labor-cost requires ?from=YYYY-MM-DD&to=YYYY-MM-DD' })
-      }
-      // GET /v1/labor/cost — per-shift labor costs with rates
-      data = await slingFetch(`${base}/labor/cost?dates=${from}/${nextDay(to)}`)
     } else if (action === 'payroll') {
       if (!from || !to) {
         return res.status(400).json({ error: 'payroll requires ?from=YYYY-MM-DD&to=YYYY-MM-DD' })

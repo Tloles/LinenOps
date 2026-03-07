@@ -63,42 +63,23 @@ function getDateRange(range) {
   return { from: first.toISOString().slice(0, 10), to }
 }
 
-function getPayRate(user, ts, laborCostMap) {
-  const userId = ts?.user?.id || ts?.userId || user?.id
-  // Try labor cost data (from /labor/cost endpoint)
-  if (laborCostMap && userId && laborCostMap[userId]) {
-    const rate = laborCostMap[userId]
-    console.log('Rate for user', userId, ':', rate, '(from labor-cost)')
-    return rate
-  }
-  // Try timesheet-embedded rate
-  if (ts?.rate) {
-    const rate = parseFloat(ts.rate) || 0
-    console.log('Rate for user', userId, ':', rate, '(from ts.rate)')
-    return rate
-  }
-  if (ts?.hourlyRate) {
-    const rate = parseFloat(ts.hourlyRate) || 0
-    console.log('Rate for user', userId, ':', rate, '(from ts.hourlyRate)')
-    return rate
-  }
-  if (!user) {
-    console.log('Rate for user', userId, ': 0 (no user object)')
-    return 0
-  }
-  // Try wages.base from Sling concise response
-  const baseWages = user.wages?.base
-  if (Array.isArray(baseWages) && baseWages.length > 0) {
-    const entry = baseWages[baseWages.length - 1]
-    const rate = parseFloat(entry.regularRate)
-    if (!isNaN(rate) && !entry.isSalary) {
-      console.log('Rate for user', userId, ':', rate, '(from wages.base)')
-      return rate
+function getPayRate(user) {
+  if (!user) return 0
+  // Read wages directly from concise user object
+  const wages = user.wages
+  if (wages) {
+    // Try wages.base array (most common structure)
+    const baseWages = wages.base
+    if (Array.isArray(baseWages) && baseWages.length > 0) {
+      const entry = baseWages[baseWages.length - 1]
+      const rate = parseFloat(entry.regularRate)
+      if (!isNaN(rate) && rate > 0 && !entry.isSalary) return rate
     }
+    // Try wages as a direct number
+    if (typeof wages === 'number' && wages > 0) return wages
   }
-  const fallback = user?.hourlyRate || user?.wage || 0
-  console.log('Rate for user', userId, ':', fallback, '(fallback)')
-  return fallback
+  // Fallback fields
+  return user?.hourlyRate || user?.wage || 0
 }
 
 function fmt$(n) { return '$' + n.toFixed(2) }
@@ -126,7 +107,6 @@ export default function LaborPage() {
   const [groups, setGroups] = useState([])
   const [timesheets, setTimesheets] = useState([])
   const [todayTimesheets, setTodayTimesheets] = useState([])
-  const [laborCostMap, setLaborCostMap] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [dateRange, setDateRange] = useState('today')
@@ -138,12 +118,11 @@ export default function LaborPage() {
       const { from, to } = getDateRange(dateRange)
       const today = new Date().toISOString().slice(0, 10)
 
-      // Always fetch today's timesheets for Active Now, plus range timesheets + labor costs
+      // Always fetch today's timesheets for Active Now, plus range timesheets
       const fetches = [
         fetch('/api/sling?action=concise'),
         fetch('/api/sling?action=groups'),
         fetch(`/api/sling?action=timesheets&from=${from}&to=${to}`),
-        fetch(`/api/sling?action=labor-cost&from=${from}&to=${to}`),
       ]
       // If range isn't today, also fetch today's data separately for Active Now
       const needSeparateToday = from !== today
@@ -152,7 +131,7 @@ export default function LaborPage() {
       }
 
       const responses = await Promise.all(fetches)
-      const [conciseRes, groupsRes, tsRes, laborCostRes] = responses
+      const [conciseRes, groupsRes, tsRes] = responses
 
       if (!conciseRes.ok) throw new Error(`Users fetch failed (${conciseRes.status})`)
       if (!groupsRes.ok) throw new Error(`Groups fetch failed (${groupsRes.status})`)
@@ -165,46 +144,30 @@ export default function LaborPage() {
         ? conciseData
         : Array.isArray(conciseData?.users) ? conciseData.users : []
 
-      // Parse labor cost data — build userId → hourly rate map
-      const costMap = {}
-      if (laborCostRes.ok) {
-        const laborData = await laborCostRes.json()
-        console.log('Labor cost API response:', laborData)
-        // Try to extract per-user rates from response
-        const entries = Array.isArray(laborData) ? laborData : []
-        for (const entry of entries) {
-          const uid = entry.user?.id || entry.userId
-          const rate = parseFloat(entry.regularRate || entry.rate || entry.hourlyRate || entry.costPerHour || 0)
-          if (uid && rate > 0) costMap[uid] = rate
-        }
-      } else {
-        const errText = await laborCostRes.text()
-        console.log('Labor cost API error:', laborCostRes.status, errText)
-      }
-
       let todayTs = tsArray
-      if (needSeparateToday) {
-        const todayIdx = 4
-        if (responses[todayIdx]?.ok) {
-          const todayData = await responses[todayIdx].json()
-          todayTs = Array.isArray(todayData) ? todayData : []
-        }
+      if (needSeparateToday && responses[3]?.ok) {
+        const todayData = await responses[3].json()
+        todayTs = Array.isArray(todayData) ? todayData : []
       }
 
-      // Debug: log first concise user to see wage fields
-      if (usersArray.length > 0) {
-        console.log('First concise user (wage fields):', JSON.stringify(usersArray[0], null, 2))
+      // Debug: log wages field for first few users
+      for (const u of usersArray.slice(0, 5)) {
+        const name = `${u.name || u.fname || ''} ${u.lastname || u.lname || ''}`.trim()
+        console.log('User wages field:', name, u.id, u.wages)
       }
-      // Debug: log first timesheet to see rate fields
-      if (tsArray.length > 0) {
-        console.log('First timesheet (rate fields):', JSON.stringify(tsArray[0], null, 2))
+      // Debug: check user 10857291 specifically
+      const debugUser = usersArray.find(u => u.id === 10857291)
+      if (debugUser) {
+        const name = `${debugUser.name || debugUser.fname || ''} ${debugUser.lastname || debugUser.lname || ''}`.trim()
+        console.log('User 10857291:', name, 'wages:', JSON.stringify(debugUser.wages, null, 2))
+      } else {
+        console.log('User 10857291 NOT FOUND in concise response. All IDs:', usersArray.map(u => u.id))
       }
 
       setUsers(usersArray)
       setGroups(Array.isArray(groupsData) ? groupsData : [])
       setTimesheets(tsArray)
       setTodayTimesheets(todayTs)
-      setLaborCostMap(costMap)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -226,7 +189,12 @@ export default function LaborPage() {
 
   const userMap = useMemo(() => {
     const m = {}
-    users.forEach(u => { m[u.id] = u })
+    users.forEach(u => {
+      m[u.id] = u
+      // Also index by lowercase full name for fallback matching
+      const name = `${u.name || u.fname || ''} ${u.lastname || u.lname || ''}`.trim().toLowerCase()
+      if (name) m[name] = u
+    })
     return m
   }, [users])
 
@@ -237,6 +205,18 @@ export default function LaborPage() {
     if (ts.user) return `${ts.user.name || ts.user.fname || ''} ${ts.user.lastname || ts.user.lname || ''}`.trim() || 'Unknown'
     return 'Unknown'
   }, [userMap])
+
+  // Find concise user by ID, falling back to name match
+  const findUser = useCallback((ts) => {
+    const userId = ts.user?.id || ts.userId
+    if (userMap[userId]) return userMap[userId]
+    // Fallback: match by name from timesheet
+    const name = getUserName(ts).toLowerCase()
+    if (name && userMap[name]) return userMap[name]
+    // Try alias
+    if (NAME_ALIASES[name] && userMap[NAME_ALIASES[name]]) return userMap[NAME_ALIASES[name]]
+    return null
+  }, [userMap, getUserName])
 
   // Roster-based position: use CSV as source of truth
   const getRosterEntry = useCallback((ts) => {
@@ -274,24 +254,27 @@ export default function LaborPage() {
       if (!isRostered(ts)) continue
       seen.add(userId)
 
-      const user = userMap[userId]
+      const user = findUser(ts)
       const entry = getRosterEntry(ts)
       const clockIn = projections[0].clockIn
       const hoursElapsed = clockIn ? Math.max(0, (now - new Date(clockIn)) / 3600000) : 0
+      const rate = getPayRate(user)
+      const name = getUserName(ts)
+      console.log('Rate for user', name, userId, ':', rate)
 
       result.push({
         id: userId,
-        name: getUserName(ts),
+        name,
         section: ROLE_SECTIONS[entry?.primaryRole] || '',
         primaryRole: entry?.primaryRole || '',
         flexRoles: entry?.flexRoles || '',
         hours: hoursElapsed,
-        cost: hoursElapsed * getPayRate(user, ts, laborCostMap),
+        cost: hoursElapsed * rate,
       })
     }
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [todayTimesheets, userMap, getUserName, getRosterEntry, isRostered, laborCostMap, today, tick])
+  }, [todayTimesheets, userMap, getUserName, findUser, getRosterEntry, isRostered, today, tick])
 
   const activeTotalCost = useMemo(() => {
     return activeEmployees.reduce((sum, e) => sum + e.cost, 0)
@@ -351,7 +334,7 @@ export default function LaborPage() {
       if (seen.has(key)) continue
       seen.add(key)
 
-      const user = userMap[userId]
+      const user = findUser(ts)
       const entry = getRosterEntry(ts)
       const hours = Math.max(0, (new Date(clockOut) - new Date(clockIn)) / 3600000)
 
@@ -362,11 +345,11 @@ export default function LaborPage() {
         primaryRole: entry?.primaryRole || '',
         flexRoles: entry?.flexRoles || '',
         hours,
-        cost: hours * getPayRate(user, ts, laborCostMap),
+        cost: hours * getPayRate(user),
       })
     }
     return results
-  }, [timesheets, userMap, getUserName, getRosterEntry, isRostered, laborCostMap, dateRange])
+  }, [timesheets, userMap, getUserName, findUser, getRosterEntry, isRostered, dateRange])
 
   const completedTotals = useMemo(() => {
     const uniqueIds = new Set(completedShifts.map(s => s.id))
