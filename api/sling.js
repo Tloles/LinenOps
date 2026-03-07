@@ -25,7 +25,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing ?action= parameter' })
     }
 
-    const base = `https://api.getsling.com/${ORG_ID}`
+    const base = `https://api.getsling.com/v1/${ORG_ID}`
 
     let data
     if (action === 'users') {
