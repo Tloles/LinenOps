@@ -4,21 +4,32 @@ let tokenTimestamp = 0
 const TOKEN_TTL = 30 * 60 * 1000 // 30 minutes
 
 async function authenticate() {
+  const loginBody = { email: process.env.SLING_EMAIL, password: process.env.SLING_PASSWORD }
+  console.log('Sling login attempt for:', loginBody.email)
+
   const res = await fetch('https://api.getsling.com/account/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: process.env.SLING_EMAIL,
-      password: process.env.SLING_PASSWORD,
-    }),
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify(loginBody),
   })
 
+  const responseText = await res.text()
+  console.log(`Sling login response (${res.status}):`, responseText)
+
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Sling login failed (${res.status}): ${text}`)
+    throw new Error(`Sling login failed (${res.status}): ${responseText}`)
   }
 
-  const body = await res.json()
+  let body
+  try {
+    body = JSON.parse(responseText)
+  } catch {
+    throw new Error(`Sling login returned non-JSON: ${responseText}`)
+  }
+
   const token = res.headers.get('authorization')
   const orgId = body.org?.id || body.user?.org?.id || body.orgs?.[0]?.id
 
