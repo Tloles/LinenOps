@@ -55,9 +55,6 @@ export default async function handler(req, res) {
       }
       // GET /v1/reports/payroll — wage/hours totals per employee
       data = await slingFetch(`${base}/reports/payroll?dates=${from}/${nextDay(to)}`)
-    } else if (action === 'currentclockin') {
-      // GET /v1/timeclock/clockin — who is currently clocked in
-      data = await slingFetch(`${base}/timeclock/clockin`)
     } else {
       return res.status(400).json({ error: `Unknown action: ${action}` })
     }

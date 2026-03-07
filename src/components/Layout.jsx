@@ -46,13 +46,13 @@ const SIDEBAR_SECTIONS = [
     items: [
       { to: '/customers', label: 'Customers', icon: Building2, show: r => r === 'owner' || r === 'manager' },
       { to: '/invoicing', label: 'Invoicing', icon: DollarSign, show: r => r === 'owner' || r === 'manager' },
+      { to: '/labor', label: 'Labor', icon: HardHat, show: r => r === 'owner' },
       { to: 'ROUTES', label: 'Routes', icon: Map, show: r => r !== 'production' },
     ],
   },
   {
     label: 'ADMIN',
     items: [
-      { to: '/labor', label: 'Labor', icon: HardHat, show: r => r === 'owner' },
       { to: '/users', label: 'Users', icon: UsersIcon, show: r => r === 'owner' },
     ],
   },

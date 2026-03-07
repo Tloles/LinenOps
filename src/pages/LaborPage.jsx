@@ -63,12 +63,17 @@ function getDateRange(range) {
   return { from: first.toISOString().slice(0, 10), to }
 }
 
-function getPayRate(user) {
+function getPayRate(user, ts) {
+  // Try timesheet-embedded rate first
+  if (ts?.rate) return parseFloat(ts.rate) || 0
+  if (ts?.hourlyRate) return parseFloat(ts.hourlyRate) || 0
   if (!user) return 0
+  // Try wages.base from Sling concise response
   const baseWages = user.wages?.base
   if (Array.isArray(baseWages) && baseWages.length > 0) {
-    const rate = parseFloat(baseWages[baseWages.length - 1].regularRate)
-    if (!isNaN(rate) && !baseWages[baseWages.length - 1].isSalary) return rate
+    const entry = baseWages[baseWages.length - 1]
+    const rate = parseFloat(entry.regularRate)
+    if (!isNaN(rate) && !entry.isSalary) return rate
   }
   return user?.hourlyRate || user?.wage || 0
 }
@@ -97,7 +102,7 @@ export default function LaborPage() {
   const [users, setUsers] = useState([])
   const [groups, setGroups] = useState([])
   const [timesheets, setTimesheets] = useState([])
-  const [clockedIn, setClockedIn] = useState([])
+  const [todayTimesheets, setTodayTimesheets] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [dateRange, setDateRange] = useState('today')
@@ -107,12 +112,22 @@ export default function LaborPage() {
     try {
       setError(null)
       const { from, to } = getDateRange(dateRange)
-      const [conciseRes, groupsRes, tsRes, clockinRes] = await Promise.all([
+      const today = new Date().toISOString().slice(0, 10)
+
+      // Always fetch today's timesheets for Active Now, plus range timesheets
+      const fetches = [
         fetch('/api/sling?action=concise'),
         fetch('/api/sling?action=groups'),
         fetch(`/api/sling?action=timesheets&from=${from}&to=${to}`),
-        fetch('/api/sling?action=currentclockin'),
-      ])
+      ]
+      // If range isn't today, also fetch today's data separately for Active Now
+      const needSeparateToday = from !== today
+      if (needSeparateToday) {
+        fetches.push(fetch(`/api/sling?action=timesheets&from=${today}&to=${today}`))
+      }
+
+      const responses = await Promise.all(fetches)
+      const [conciseRes, groupsRes, tsRes] = responses
 
       if (!conciseRes.ok) throw new Error(`Users fetch failed (${conciseRes.status})`)
       if (!groupsRes.ok) throw new Error(`Groups fetch failed (${groupsRes.status})`)
@@ -125,16 +140,28 @@ export default function LaborPage() {
         ? conciseData
         : Array.isArray(conciseData?.users) ? conciseData.users : []
 
-      let clockinData = []
-      if (clockinRes.ok) {
-        const raw = await clockinRes.json()
-        clockinData = Array.isArray(raw) ? raw : []
+      let todayTs = tsArray
+      if (needSeparateToday && responses[3]?.ok) {
+        const todayData = await responses[3].json()
+        todayTs = Array.isArray(todayData) ? todayData : []
+      }
+
+      // Debug: log first entry and any entries for Dolores/Jacky
+      if (tsArray.length > 0) {
+        console.log('First timesheet entry:', JSON.stringify(tsArray[0], null, 2))
+      }
+      const debugNames = ['dolores', 'jacky', 'jackeline']
+      for (const ts of tsArray) {
+        const name = (ts.user?.name || ts.user?.fname || '').toLowerCase()
+        if (debugNames.some(d => name.includes(d))) {
+          console.log(`Debug timesheet for ${name}:`, JSON.stringify(ts, null, 2))
+        }
       }
 
       setUsers(usersArray)
       setGroups(Array.isArray(groupsData) ? groupsData : [])
       setTimesheets(tsArray)
-      setClockedIn(clockinData)
+      setTodayTimesheets(todayTs)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -192,16 +219,15 @@ export default function LaborPage() {
     const seen = new Set()
     const result = []
 
-    const source = clockedIn.length > 0
-      ? clockedIn
-      : timesheets.filter(ts => {
-          const start = ts.dtstart || ts.clockIn
-          if (!start) return false
-          const hasEnd = ts.dtend || ts.clockOut
-          return new Date(start).toISOString().slice(0, 10) === today && !hasEnd
-        })
+    // Open punches from today's timesheets: has clock-in but no clock-out
+    const openPunches = todayTimesheets.filter(ts => {
+      const start = ts.dtstart || ts.clockIn
+      if (!start) return false
+      const hasEnd = ts.dtend || ts.clockOut
+      return !hasEnd
+    })
 
-    for (const ts of source) {
+    for (const ts of openPunches) {
       const userId = ts.user?.id || ts.userId
       if (!userId || seen.has(userId)) continue
       if (!isRostered(ts)) continue
@@ -219,12 +245,12 @@ export default function LaborPage() {
         primaryRole: entry?.primaryRole || '',
         flexRoles: entry?.flexRoles || '',
         hours: hoursElapsed,
-        cost: hoursElapsed * getPayRate(user),
+        cost: hoursElapsed * getPayRate(user, ts),
       })
     }
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clockedIn, timesheets, userMap, getUserName, getRosterEntry, isRostered, today, tick])
+  }, [todayTimesheets, userMap, getUserName, getRosterEntry, isRostered, today, tick])
 
   const activeTotalCost = useMemo(() => {
     return activeEmployees.reduce((sum, e) => sum + e.cost, 0)
@@ -288,7 +314,7 @@ export default function LaborPage() {
         primaryRole: entry?.primaryRole || '',
         flexRoles: entry?.flexRoles || '',
         hours,
-        cost: hours * getPayRate(user),
+        cost: hours * getPayRate(user, ts),
       }
     })
   }, [timesheets, userMap, getUserName, getRosterEntry, isRostered, dateRange])
