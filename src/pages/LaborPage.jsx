@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Clock } from 'lucide-react'
 import rosterCsv from '../../docs/White Sail Roster.csv?raw'
 
 // --- Parse roster CSV at build time ---
@@ -44,6 +45,12 @@ const FLEX_LABELS = {
   'Linen Production Pressing': 'Production',
   'Linen Production Lead': 'Production',
   'Driver': 'Logistics',
+}
+
+const ROLE_COLORS = {
+  Production: { border: '#3B82F6', bg: 'bg-blue-50', text: 'text-blue-700' },
+  Washing: { border: '#14B8A6', bg: 'bg-teal-50', text: 'text-teal-700' },
+  Logistics: { border: '#F97316', bg: 'bg-orange-50', text: 'text-orange-700' },
 }
 
 const DATE_RANGES = ['today', 'week', 'month']
@@ -408,34 +415,44 @@ export default function LaborPage() {
                 const group = activeEmployees.filter(e => e.section === role)
                 if (group.length === 0) return null
                 const roleCost = group.reduce((sum, e) => sum + e.cost, 0)
+                const colors = ROLE_COLORS[role]
                 return (
                   <div key={role}>
                     <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">{role}</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                       {group.map(emp => (
-                        <div key={emp.id} className="bg-green-50 border border-green-200 rounded-lg p-3 relative">
-                          <span className="absolute top-2 right-2 text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-                            Active
-                          </span>
-                          <p className="font-semibold text-gray-900">
+                        <div
+                          key={emp.id}
+                          className="bg-white border border-gray-200 rounded-lg p-3 border-l-4"
+                          style={{ borderLeftColor: colors.border }}
+                        >
+                          <p className="font-semibold text-gray-900 flex items-center gap-1.5">
+                            <span className="relative flex h-2.5 w-2.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                            </span>
                             {emp.name}
                             <FlexBadge flexRoles={emp.flexRoles} />
                           </p>
-                          <p className="text-xs text-gray-400">{emp.section}</p>
-                          <p className="text-sm text-gray-500 mt-1">{fmtHrs(emp.hours)}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{emp.section}</p>
+                          <p className="text-xl font-bold text-gray-800 mt-1">{fmtHrs(emp.hours)}</p>
                         </div>
                       ))}
                     </div>
-                    <p className="mt-1.5 text-xs font-medium text-green-700 text-right">{role} subtotal: {fmt$(roleCost)}</p>
+                    <div className="mt-2 flex justify-end">
+                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${colors.bg} ${colors.text}`}>
+                        {role}: {fmt$(roleCost)}
+                      </span>
+                    </div>
                   </div>
                 )
               })}
             </div>
-            <div className="mt-3 bg-green-100 border border-green-300 rounded-lg p-3 flex items-center justify-between">
-              <span className="text-sm font-medium text-green-800">
+            <div className="mt-3 bg-[#1B2541] rounded-lg p-3 flex items-center justify-between">
+              <span className="text-sm font-medium text-white/80">
                 {activeEmployees.length} employee{activeEmployees.length !== 1 ? 's' : ''} active
               </span>
-              <span className="text-lg font-bold text-green-900">{fmt$(activeTotalCost)} so far</span>
+              <span className="text-2xl font-bold text-white">{fmt$(activeTotalCost)} so far</span>
             </div>
           </>
         )}
@@ -458,7 +475,10 @@ export default function LaborPage() {
                     </p>
                     <p className="text-xs text-gray-400">{shift.section}</p>
                   </div>
-                  <span className="text-sm text-gray-500">{shift.startTime}</span>
+                  <span className="flex items-center gap-1 text-sm text-gray-500">
+                    <Clock size={14} />
+                    {shift.startTime}
+                  </span>
                 </div>
               ))}
             </div>
