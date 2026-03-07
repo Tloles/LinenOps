@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router'
-import { BrowserMultiFormatReader } from '@zxing/browser'
-import { DecodeHintType, BarcodeFormat } from '@zxing/library'
+import Quagga from 'quagga'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { STATUS_COLORS, statusLabel, BIN_COLORS } from '../lib/constants'
@@ -27,50 +26,65 @@ export default function BinListPage() {
   const [barcodeScanning, setBarcodeScanning] = useState(false)
   const [torchOn, setTorchOn] = useState(false)
   const barcodeScannerRef = useRef(null)
-  const html5QrRef = useRef(null)
+  const quaggaRunning = useRef(false)
 
   const stopBarcodeScanner = useCallback(() => {
-    if (html5QrRef.current) {
-      html5QrRef.current.stop()
-      html5QrRef.current = null
+    if (quaggaRunning.current) {
+      Quagga.stop()
+      quaggaRunning.current = false
     }
     setTorchOn(false)
     setBarcodeScanning(false)
   }, [])
 
-  async function startBarcodeScanner() {
+  function startBarcodeScanner() {
     setFormError(null)
     setTorchOn(false)
     setBarcodeScanning(true)
-    try {
-      const hints = new Map()
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128])
-      hints.set(DecodeHintType.TRY_HARDER, true)
 
-      const reader = new BrowserMultiFormatReader(hints)
-      const controls = await reader.decodeFromConstraints(
-        { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
-        barcodeScannerRef.current,
-        (result) => {
-          if (result) {
-            controls?.stop()
-            html5QrRef.current = null
-            setTorchOn(false)
-            setBarcodeScanning(false)
-            setBarcode(result.getText().trim())
-          }
+    Quagga.init(
+      {
+        inputStream: {
+          type: 'LiveStream',
+          target: barcodeScannerRef.current,
+          constraints: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        },
+        frequency: 10,
+        decoder: {
+          readers: ['code_128_reader'],
+        },
+        locate: true,
+      },
+      (err) => {
+        if (err) {
+          console.error('[Quagga] init error:', err)
+          setFormError('Could not start camera. Please check permissions or enter barcode manually.')
+          setBarcodeScanning(false)
+          return
         }
-      )
-      html5QrRef.current = controls
-    } catch {
-      setFormError('Could not start camera. Please check permissions or enter barcode manually.')
+        Quagga.start()
+        quaggaRunning.current = true
+      }
+    )
+
+    Quagga.onDetected((result) => {
+      const code = result?.codeResult?.code
+      if (!code) return
+      Quagga.stop()
+      quaggaRunning.current = false
+      setTorchOn(false)
       setBarcodeScanning(false)
-    }
+      setBarcode(code.trim())
+    })
   }
 
   async function toggleTorch() {
     try {
-      const video = barcodeScannerRef.current
+      const video = barcodeScannerRef.current?.querySelector('video')
       if (!video?.srcObject) return
       const track = video.srcObject.getVideoTracks()[0]
       if (!track) return
@@ -84,8 +98,9 @@ export default function BinListPage() {
 
   useEffect(() => {
     return () => {
-      if (html5QrRef.current) {
-        html5QrRef.current.stop()
+      if (quaggaRunning.current) {
+        Quagga.stop()
+        quaggaRunning.current = false
       }
     }
   }, [])
@@ -273,9 +288,10 @@ export default function BinListPage() {
                 </button>
               )}
             </div>
-            <video
+            <div
               ref={barcodeScannerRef}
               className={barcodeScanning ? 'mt-2 w-full rounded-lg overflow-hidden' : 'hidden'}
+              style={barcodeScanning ? { position: 'relative' } : undefined}
             />
           </div>
 
