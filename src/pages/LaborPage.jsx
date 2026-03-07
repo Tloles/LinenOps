@@ -355,27 +355,40 @@ export default function LaborPage() {
         <div className="p-4 bg-rose-50 text-rose-700 rounded-lg">{error}</div>
       )}
 
-      {/* SECTION 1: ACTIVE NOW */}
+      {/* SECTION 1: ACTIVE NOW — grouped by role */}
       <section>
         <h2 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">Active Now</h2>
         {activeEmployees.length === 0 ? (
           <p className="text-gray-400 text-sm">No employees currently clocked in</p>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {activeEmployees.map(emp => (
-                <div key={emp.id} className="bg-green-50 border border-green-200 rounded-lg p-3 relative">
-                  <span className="absolute top-2 right-2 text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
-                  <p className="font-semibold text-gray-900">
-                    {emp.name}
-                    <FlexBadge flexRoles={emp.flexRoles} />
-                  </p>
-                  <p className="text-xs text-gray-400">{emp.section}</p>
-                  <p className="text-sm text-gray-500 mt-1">{fmtHrs(emp.hours)}</p>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {['Production', 'Washing', 'Logistics'].map(role => {
+                const group = activeEmployees.filter(e => e.section === role)
+                if (group.length === 0) return null
+                const roleCost = group.reduce((sum, e) => sum + e.cost, 0)
+                return (
+                  <div key={role}>
+                    <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">{role}</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {group.map(emp => (
+                        <div key={emp.id} className="bg-green-50 border border-green-200 rounded-lg p-3 relative">
+                          <span className="absolute top-2 right-2 text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                            Active
+                          </span>
+                          <p className="font-semibold text-gray-900">
+                            {emp.name}
+                            <FlexBadge flexRoles={emp.flexRoles} />
+                          </p>
+                          <p className="text-xs text-gray-400">{emp.section}</p>
+                          <p className="text-sm text-gray-500 mt-1">{fmtHrs(emp.hours)}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-xs font-medium text-green-700 text-right">{role} subtotal: {fmt$(roleCost)}</p>
+                  </div>
+                )
+              })}
             </div>
             <div className="mt-3 bg-green-100 border border-green-300 rounded-lg p-3 flex items-center justify-between">
               <span className="text-sm font-medium text-green-800">
