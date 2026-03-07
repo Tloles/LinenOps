@@ -290,34 +290,50 @@ export default function LaborPage() {
     return activeEmployees.reduce((sum, e) => sum + e.cost, 0)
   }, [activeEmployees])
 
-  // --- SECTION 2: SCHEDULED ---
+  // --- SECTION 2: SCHEDULED (upcoming + late/overdue) ---
+  // IDs of employees currently active (already shown in Active Now)
+  const activeIds = useMemo(() => new Set(activeEmployees.map(e => e.id)), [activeEmployees])
+
   const scheduledShifts = useMemo(() => {
     const seen = new Set()
     return timesheets.filter(ts => {
-      const start = ts.dtstart || ts.clockIn
+      const start = ts.dtstart
       if (!start) return false
       const startTime = new Date(start)
       const isToday = startTime.toISOString().slice(0, 10) === today
-      const isFuture = startTime > now
-      const hasClockIn = ts.clockIn || ts.clockin
-      if (!isToday || !isFuture || hasClockIn) return false
+      if (!isToday) return false
       if (!isRostered(ts)) return false
       const userId = ts.user?.id || ts.userId
-      if (seen.has(userId)) return false
-      seen.add(userId)
-      return true
+      if (seen.has(userId) || activeIds.has(userId)) return false
+
+      const isFuture = startTime > now
+      const projections = ts.timesheetProjections
+      const isInProgress = Array.isArray(projections) && projections.some(p => p.status === 'in_progress')
+      const isCompleted = Array.isArray(projections) && projections.some(p => p.clockOut)
+
+      // Show if upcoming (future) or late (past start, not clocked in, not completed)
+      if (isFuture || (!isInProgress && !isCompleted)) {
+        seen.add(userId)
+        return true
+      }
+      return false
     }).map(ts => {
       const entry = getRosterEntry(ts)
+      const startDate = new Date(ts.dtstart)
+      const isFuture = startDate > now
+      const overdueHours = isFuture ? 0 : Math.max(0, (now - startDate) / 3600000)
       return {
         id: ts.user?.id || ts.userId,
         name: getUserName(ts),
         section: ROLE_SECTIONS[entry?.primaryRole] || '',
         flexRoles: entry?.flexRoles || '',
-        startTime: fmtTime(ts.dtstart || ts.clockIn),
+        startTime: fmtTime(ts.dtstart),
+        late: !isFuture,
+        overdueHours,
       }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timesheets, userMap, getUserName, getRosterEntry, isRostered, today])
+  }, [timesheets, userMap, getUserName, getRosterEntry, isRostered, activeIds, today])
 
   // --- SECTION 3: COMPLETED ---
   // Use timesheetProjections for status: completed shifts have clockIn + clockOut
@@ -467,7 +483,11 @@ export default function LaborPage() {
           ) : (
             <div className="bg-white rounded-lg border border-gray-200">
               {scheduledShifts.map((shift, i) => (
-                <div key={shift.id} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-gray-100' : ''}`}>
+                <div
+                  key={shift.id}
+                  className={`flex items-center justify-between px-4 py-3 border-l-4 ${i > 0 ? 'border-t border-gray-100' : ''}`}
+                  style={{ borderLeftColor: shift.late ? '#F59E0B' : '#D1D5DB' }}
+                >
                   <div>
                     <p className="font-medium text-gray-900">
                       {shift.name}
@@ -475,10 +495,24 @@ export default function LaborPage() {
                     </p>
                     <p className="text-xs text-gray-400">{shift.section}</p>
                   </div>
-                  <span className="flex items-center gap-1 text-sm text-gray-500">
-                    <Clock size={14} />
-                    {shift.startTime}
-                  </span>
+                  {shift.late ? (
+                    <div className="text-right">
+                      <span className="flex items-center gap-1 text-sm text-amber-600 font-medium">
+                        Expected {shift.startTime}
+                      </span>
+                      <span className="text-xs text-red-500 font-semibold">
+                        {shift.overdueHours < 1
+                          ? `${Math.round(shift.overdueHours * 60)}m overdue`
+                          : `${shift.overdueHours.toFixed(1)}h overdue`
+                        } · Not clocked in
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="flex items-center gap-1 text-sm text-gray-500">
+                      <Clock size={14} />
+                      {shift.startTime}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
