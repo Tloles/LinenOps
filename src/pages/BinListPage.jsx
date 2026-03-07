@@ -172,19 +172,25 @@ export default function BinListPage() {
     }
 
     try {
+      const insertPayload = {
+        barcode: barcode.trim(),
+        color: color || null,
+        tare_weight: parsedWeight,
+        customer_id: customerId || null,
+        current_status: 'clean_staged',
+      }
+      console.log('[RegisterCart] insert payload:', JSON.stringify(insertPayload))
+
       const { data: bin, error: binError } = await supabase
         .from('bins')
-        .insert({
-          barcode,
-          color: color || null,
-          tare_weight: parsedWeight,
-          customer_id: customerId || null,
-          current_status: 'clean_staged',
-        })
+        .insert(insertPayload)
         .select()
         .single()
 
-      if (binError) throw binError
+      if (binError) {
+        console.error('[RegisterCart] insert error:', JSON.stringify(binError))
+        throw binError
+      }
 
       // Record initial scan event
       await supabase.from('scan_events').insert({
