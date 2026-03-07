@@ -44,14 +44,14 @@ function fmtHrs(h) {
 }
 
 const ROLES = [
-  { key: 'logistics', label: 'Logistics', emoji: '🚛', match: p => p.split(', ').some(n => n === 'Driver') },
-  { key: 'washing', label: 'Washing', emoji: '🫧', match: p => p.split(', ').some(n => n === 'Linen Production Washing') },
-  { key: 'production', label: 'Production', emoji: '⚙️', match: p => p.split(', ').some(n => n === 'Linen Production Pressing' || n === 'Linen Production Lead') },
+  { key: 'logistics', label: 'Logistics', emoji: '🚛', match: p => /Driver/i.test(p) },
+  { key: 'washing', label: 'Washing', emoji: '🫧', match: p => /Linen Production Washing/i.test(p) },
+  { key: 'production', label: 'Production', emoji: '⚙️', match: p => /Linen Production Pressing/i.test(p) || /Linen Production Lead/i.test(p) },
 ]
 
 export default function LaborPage() {
   const [users, setUsers] = useState([])
-  const [positions, setPositions] = useState([])
+  const [groups, setGroups] = useState([])
   const [timesheets, setTimesheets] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -62,19 +62,19 @@ export default function LaborPage() {
     try {
       setError(null)
       const { from, to } = getDateRange(dateRange)
-      const [usersRes, posRes, tsRes] = await Promise.all([
-        fetch('/api/sling?action=users'),
-        fetch('/api/sling?action=positions'),
+      const [conciseRes, groupsRes, tsRes] = await Promise.all([
+        fetch('/api/sling?action=concise'),
+        fetch('/api/sling?action=groups'),
         fetch(`/api/sling?action=timesheets&from=${from}&to=${to}`),
       ])
 
-      if (!usersRes.ok) throw new Error(`Users fetch failed (${usersRes.status})`)
-      if (!posRes.ok) throw new Error(`Positions fetch failed (${posRes.status})`)
+      if (!conciseRes.ok) throw new Error(`Users fetch failed (${conciseRes.status})`)
+      if (!groupsRes.ok) throw new Error(`Groups fetch failed (${groupsRes.status})`)
       if (!tsRes.ok) throw new Error(`Timesheets fetch failed (${tsRes.status})`)
 
-      const [usersData, posData, tsData] = await Promise.all([usersRes.json(), posRes.json(), tsRes.json()])
-      setUsers(Array.isArray(usersData) ? usersData : [])
-      setPositions(Array.isArray(posData) ? posData : [])
+      const [conciseData, groupsData, tsData] = await Promise.all([conciseRes.json(), groupsRes.json(), tsRes.json()])
+      setUsers(Array.isArray(conciseData) ? conciseData : [])
+      setGroups(Array.isArray(groupsData) ? groupsData : [])
       setTimesheets(Array.isArray(tsData) ? tsData : [])
     } catch (err) {
       setError(err.message)
@@ -97,12 +97,12 @@ export default function LaborPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // Build position ID → name lookup
-  const posMap = useMemo(() => {
+  // Build group ID → name lookup (positions are groups in Sling)
+  const groupMap = useMemo(() => {
     const m = {}
-    positions.forEach(p => { m[p.id] = p.name || '' })
+    groups.forEach(g => { m[g.id] = g.name || '' })
     return m
-  }, [positions])
+  }, [groups])
 
   // Only include active users
   const userMap = useMemo(() => {
@@ -125,14 +125,22 @@ export default function LaborPage() {
     })
   }, [timesheets, today, userMap])
 
-  // Resolve position name for a user via their position IDs
+  // Resolve position names from user's group memberships
   const getUserPosition = useCallback((userId) => {
     const user = userMap[userId]
     if (!user) return ''
-    // Sling users have a positions array of position IDs
-    const posIds = user.positions || []
-    return posIds.map(id => posMap[id] || '').filter(Boolean).join(', ')
-  }, [userMap, posMap])
+    // Try direct position fields first
+    if (user.position?.name) return user.position.name
+    if (typeof user.position === 'string' && user.position) return user.position
+    // Resolve from group IDs (Sling stores positions as groups)
+    const gIds = user.groups || user.groupIds || []
+    const names = gIds.map(id => groupMap[id] || '').filter(Boolean)
+    if (names.length) return names.join(', ')
+    // Fallback to type/title
+    if (user.type && typeof user.type === 'string') return user.type
+    if (user.title) return user.title
+    return ''
+  }, [userMap, groupMap])
 
   const getUserName = useCallback((ts) => {
     const user = userMap[ts.user?.id || ts.userId]

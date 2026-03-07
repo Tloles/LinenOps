@@ -33,23 +33,12 @@ export default async function handler(req, res) {
     let data
     if (action === 'users') {
       data = await slingFetch(`${base}/users`)
-    } else if (action === 'positions') {
-      // Try multiple endpoints — Sling API varies
-      const urls = [
-        `${base}/positions`,
-        `${base}/users/positions`,
-        `https://api.getsling.com/v1/positions`,
-      ]
-      for (const url of urls) {
-        try {
-          data = await slingFetch(url)
-          console.log('Positions succeeded with:', url)
-          break
-        } catch (err) {
-          console.log('Positions failed with:', url, err.message)
-          if (url === urls[urls.length - 1]) throw err
-        }
-      }
+    } else if (action === 'groups') {
+      // Positions in Sling are stored as groups (per API spec)
+      data = await slingFetch(`${base}/groups`)
+    } else if (action === 'concise') {
+      // Detailed user info including group/position assignments
+      data = await slingFetch(`${base}/users/concise`)
     } else if (action === 'timesheets') {
       if (!from || !to) {
         return res.status(400).json({ error: 'timesheets requires ?from=YYYY-MM-DD&to=YYYY-MM-DD' })
