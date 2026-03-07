@@ -65,21 +65,24 @@ function getDateRange(range) {
 
 function getPayRate(user) {
   if (!user) return 0
-  // Read wages directly from concise user object
   const wages = user.wages
-  if (wages) {
-    // Try wages.base array (most common structure)
-    const baseWages = wages.base
-    if (Array.isArray(baseWages) && baseWages.length > 0) {
-      const entry = baseWages[baseWages.length - 1]
-      const rate = parseFloat(entry.regularRate)
-      if (!isNaN(rate) && rate > 0 && !entry.isSalary) return rate
-    }
-    // Try wages as a direct number
-    if (typeof wages === 'number' && wages > 0) return wages
+  if (!wages) return 0
+  // 1. Try wages.base (employee base wage)
+  const baseWages = wages.base
+  if (Array.isArray(baseWages) && baseWages.length > 0) {
+    const entry = baseWages[baseWages.length - 1]
+    const rate = parseFloat(entry.regularRate)
+    if (!isNaN(rate) && rate > 0 && !entry.isSalary) return rate
   }
-  // Fallback fields
-  return user?.hourlyRate || user?.wage || 0
+  // 2. Try wages.positions array — per-position rates
+  const positions = wages.positions
+  if (Array.isArray(positions)) {
+    for (const pos of positions) {
+      const rate = parseFloat(pos.regularRate)
+      if (!isNaN(rate) && rate > 0) return rate
+    }
+  }
+  return 0
 }
 
 function fmt$(n) { return '$' + n.toFixed(2) }
