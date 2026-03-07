@@ -17,6 +17,13 @@ async function slingFetch(url) {
   return JSON.parse(text)
 }
 
+// Add one day to a YYYY-MM-DD string (Sling report intervals are exclusive end)
+function nextDay(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
 export default async function handler(req, res) {
   try {
     if (!TOKEN) return res.status(500).json({ error: 'SLING_TOKEN not configured' })
@@ -31,20 +38,26 @@ export default async function handler(req, res) {
     const base = `https://api.getsling.com/v1/${ORG_ID}`
 
     let data
-    if (action === 'users') {
-      data = await slingFetch(`${base}/users`)
-    } else if (action === 'groups') {
-      // Positions in Sling are stored as groups (per API spec)
-      data = await slingFetch(`${base}/groups`)
-    } else if (action === 'concise') {
-      // Detailed user info including group/position assignments
+    if (action === 'concise') {
       data = await slingFetch(`${base}/users/concise`)
+    } else if (action === 'groups') {
+      data = await slingFetch(`${base}/groups`)
     } else if (action === 'timesheets') {
       if (!from || !to) {
         return res.status(400).json({ error: 'timesheets requires ?from=YYYY-MM-DD&to=YYYY-MM-DD' })
       }
-      // Use /timesheets for actual clock-in/out records (not /reports/timesheets which returns schedule)
-      data = await slingFetch(`${base}/timesheets?dates=${from}/${to}`)
+      // GET /v1/reports/timesheets — actual clock-in/out data
+      // Sling uses ISO8601 interval with exclusive end date
+      data = await slingFetch(`${base}/reports/timesheets?dates=${from}/${nextDay(to)}`)
+    } else if (action === 'payroll') {
+      if (!from || !to) {
+        return res.status(400).json({ error: 'payroll requires ?from=YYYY-MM-DD&to=YYYY-MM-DD' })
+      }
+      // GET /v1/reports/payroll — wage/hours totals per employee
+      data = await slingFetch(`${base}/reports/payroll?dates=${from}/${nextDay(to)}`)
+    } else if (action === 'currentclockin') {
+      // GET /v1/timeclock/clockin — who is currently clocked in
+      data = await slingFetch(`${base}/timeclock/clockin`)
     } else {
       return res.status(400).json({ error: `Unknown action: ${action}` })
     }

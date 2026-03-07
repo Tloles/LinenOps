@@ -57,6 +57,7 @@ export default function LaborPage() {
   const [users, setUsers] = useState([])
   const [groups, setGroups] = useState([])
   const [timesheets, setTimesheets] = useState([])
+  const [clockedIn, setClockedIn] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [dateRange, setDateRange] = useState('today')
@@ -66,10 +67,11 @@ export default function LaborPage() {
     try {
       setError(null)
       const { from, to } = getDateRange(dateRange)
-      const [conciseRes, groupsRes, tsRes] = await Promise.all([
+      const [conciseRes, groupsRes, tsRes, clockinRes] = await Promise.all([
         fetch('/api/sling?action=concise'),
         fetch('/api/sling?action=groups'),
         fetch(`/api/sling?action=timesheets&from=${from}&to=${to}`),
+        fetch('/api/sling?action=currentclockin'),
       ])
 
       if (!conciseRes.ok) throw new Error(`Users fetch failed (${conciseRes.status})`)
@@ -78,6 +80,12 @@ export default function LaborPage() {
 
       const [conciseData, groupsData, tsData] = await Promise.all([conciseRes.json(), groupsRes.json(), tsRes.json()])
 
+      // Log first timesheet entry to verify field names
+      const tsArray = Array.isArray(tsData) ? tsData : []
+      if (tsArray.length > 0) {
+        console.log('First timesheet entry:', JSON.stringify(tsArray[0], null, 2))
+      }
+
       // concise returns { users: [...] } or just [...]
       const usersArray = Array.isArray(conciseData)
         ? conciseData
@@ -85,9 +93,20 @@ export default function LaborPage() {
         ? conciseData.users
         : []
 
+      // currentclockin may fail (404) — non-fatal
+      let clockinData = []
+      if (clockinRes.ok) {
+        const raw = await clockinRes.json()
+        clockinData = Array.isArray(raw) ? raw : []
+        if (clockinData.length > 0) {
+          console.log('First clockin entry:', JSON.stringify(clockinData[0], null, 2))
+        }
+      }
+
       setUsers(usersArray)
       setGroups(Array.isArray(groupsData) ? groupsData : [])
-      setTimesheets(Array.isArray(tsData) ? tsData : [])
+      setTimesheets(tsArray)
+      setClockedIn(clockinData)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -127,8 +146,10 @@ export default function LaborPage() {
 
   const today = new Date().toISOString().slice(0, 10)
 
-  // FIX: Don't gate on userMap — use timesheet's embedded user data as fallback
-  const activeTimesheets = useMemo(() => {
+  // Active Now — use /timeclock/clockin endpoint data
+  // Falls back to filtering timesheets for open punches if clockedIn is empty
+  const activeEntries = useMemo(() => {
+    if (clockedIn.length > 0) return clockedIn
     return timesheets.filter(ts => {
       const start = ts.dtstart || ts.clockIn
       if (!start) return false
@@ -136,7 +157,7 @@ export default function LaborPage() {
       const hasEnd = ts.dtend || ts.clockOut
       return startDate === today && !hasEnd
     })
-  }, [timesheets, today])
+  }, [clockedIn, timesheets, today])
 
   // Resolve position name — check timesheet's own position data first,
   // then fall back to user's group memberships
@@ -256,11 +277,11 @@ export default function LaborPage() {
       {/* Active Now */}
       <section>
         <h2 className="text-xl font-bold text-[#1B2541] uppercase tracking-wider mb-2">Active Now</h2>
-        {activeTimesheets.length === 0 ? (
+        {activeEntries.length === 0 ? (
           <p className="text-gray-400 text-sm">No employees currently clocked in</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {activeTimesheets.map((ts, i) => {
+            {activeEntries.map((ts, i) => {
               const userId = ts.user?.id || ts.userId
               const user = userMap[userId]
               const hours = getHours(ts, tick)
