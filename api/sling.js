@@ -1,64 +1,10 @@
-let cachedToken = null
-let cachedOrgId = null
-let tokenTimestamp = 0
-const TOKEN_TTL = 30 * 60 * 1000 // 30 minutes
+const TOKEN = process.env.SLING_TOKEN
+const ORG_ID = process.env.SLING_ORG_ID
 
-async function authenticate() {
-  const loginBody = { email: process.env.SLING_EMAIL, password: process.env.SLING_PASSWORD }
-  console.log('Sling login attempt for:', loginBody.email)
-
-  const res = await fetch('https://api.getsling.com/account/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify(loginBody),
-  })
-
-  const responseText = await res.text()
-  console.log(`Sling login response (${res.status}):`, responseText)
-
-  if (!res.ok) {
-    throw new Error(`Sling login failed (${res.status}): ${responseText}`)
-  }
-
-  let body
-  try {
-    body = JSON.parse(responseText)
-  } catch {
-    throw new Error(`Sling login returned non-JSON: ${responseText}`)
-  }
-
-  const token = res.headers.get('authorization')
-  const orgId = body.org?.id || body.user?.org?.id || body.orgs?.[0]?.id
-
-  if (!token) throw new Error('No authorization token in Sling login response')
-  if (!orgId) throw new Error('Could not extract orgId from Sling login response')
-
-  cachedToken = token
-  cachedOrgId = orgId
-  tokenTimestamp = Date.now()
-
-  return { token, orgId }
-}
-
-async function getAuth() {
-  if (cachedToken && cachedOrgId && Date.now() - tokenTimestamp < TOKEN_TTL) {
-    return { token: cachedToken, orgId: cachedOrgId }
-  }
-  return authenticate()
-}
-
-async function slingFetch(url, token, retried = false) {
+async function slingFetch(url) {
   const res = await fetch(url, {
-    headers: { Authorization: token },
+    headers: { Authorization: TOKEN },
   })
-
-  if (res.status === 401 && !retried) {
-    const { token: newToken } = await authenticate()
-    return slingFetch(url, newToken, true)
-  }
 
   if (!res.ok) {
     const text = await res.text()
@@ -70,23 +16,25 @@ async function slingFetch(url, token, retried = false) {
 
 export default async function handler(req, res) {
   try {
+    if (!TOKEN) return res.status(500).json({ error: 'SLING_TOKEN not configured' })
+    if (!ORG_ID) return res.status(500).json({ error: 'SLING_ORG_ID not configured' })
+
     const { action, from, to } = req.query
 
     if (!action) {
       return res.status(400).json({ error: 'Missing ?action= parameter' })
     }
 
-    const { token, orgId } = await getAuth()
-    const base = `https://api.getsling.com/${orgId}`
+    const base = `https://api.getsling.com/${ORG_ID}`
 
     let data
     if (action === 'users') {
-      data = await slingFetch(`${base}/users`, token)
+      data = await slingFetch(`${base}/users`)
     } else if (action === 'timesheets') {
       if (!from || !to) {
         return res.status(400).json({ error: 'timesheets requires ?from=YYYY-MM-DD&to=YYYY-MM-DD' })
       }
-      data = await slingFetch(`${base}/reports/timesheets?dates=${from}/${to}`, token)
+      data = await slingFetch(`${base}/reports/timesheets?dates=${from}/${to}`)
     } else {
       return res.status(400).json({ error: `Unknown action: ${action}` })
     }
