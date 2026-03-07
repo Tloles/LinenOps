@@ -150,18 +150,22 @@ export default function LaborPage() {
         todayTs = Array.isArray(todayData) ? todayData : []
       }
 
-      // Debug: log wages field for first few users
-      for (const u of usersArray.slice(0, 5)) {
-        const name = `${u.name || u.fname || ''} ${u.lastname || u.lname || ''}`.trim()
-        console.log('User wages field:', name, u.id, u.wages)
-      }
-      // Debug: check user 10857291 specifically
-      const debugUser = usersArray.find(u => u.id === 10857291)
-      if (debugUser) {
-        const name = `${debugUser.name || debugUser.fname || ''} ${debugUser.lastname || debugUser.lname || ''}`.trim()
-        console.log('User 10857291:', name, 'wages:', JSON.stringify(debugUser.wages, null, 2))
-      } else {
-        console.log('User 10857291 NOT FOUND in concise response. All IDs:', usersArray.map(u => u.id))
+      // Debug: log full wages object for zero-rate users
+      const debugIds = [10857291, 27461977, 28618190]
+      const debugLabels = { 10857291: 'Dolores Molina Ayala', 27461977: 'Jacky Mejia', 28618190: 'Justin Boyd' }
+      for (const id of debugIds) {
+        const u = usersArray.find(u => u.id === id)
+        if (u) {
+          console.log(`=== WAGES DEBUG: ${debugLabels[id]} (${id}) ===`)
+          console.log('Full wages object:', JSON.stringify(u.wages, null, 2))
+          console.log('All top-level user keys:', Object.keys(u))
+          // Log any numeric fields on the user object that might be rates
+          for (const [key, val] of Object.entries(u)) {
+            if (typeof val === 'number' && val > 0) console.log(`  user.${key} =`, val)
+          }
+        } else {
+          console.log(`${debugLabels[id]} (${id}) NOT FOUND in concise. All IDs:`, usersArray.map(u => u.id))
+        }
       }
 
       setUsers(usersArray)
