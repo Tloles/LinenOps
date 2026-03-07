@@ -452,8 +452,9 @@ export default function LaborPage() {
                             <FlexBadge flexRoles={emp.flexRoles} />
                           </p>
                           <p className="text-xs text-gray-400 mt-0.5">{emp.section}</p>
-                          {emp.clockInTime && <p className="text-xs text-gray-400 mt-1.5">Clocked in {emp.clockInTime}</p>}
-                          <p className="text-xl font-bold text-gray-800">{fmtHrs(emp.hours)}</p>
+                          <p className="text-sm font-medium text-gray-600 mt-1.5">
+                            {emp.clockInTime && <>{emp.clockInTime} · </>}{fmtHrs(emp.hours)}
+                          </p>
                         </div>
                       ))}
                     </div>
