@@ -280,6 +280,7 @@ export default function LaborPage() {
         flexRoles: entry?.flexRoles || '',
         hours: hoursElapsed,
         cost: hoursElapsed * rate,
+        clockInTime: clockIn ? fmtTime(clockIn) : '',
       })
     }
     return result
@@ -451,7 +452,8 @@ export default function LaborPage() {
                             <FlexBadge flexRoles={emp.flexRoles} />
                           </p>
                           <p className="text-xs text-gray-400 mt-0.5">{emp.section}</p>
-                          <p className="text-xl font-bold text-gray-800 mt-1">{fmtHrs(emp.hours)}</p>
+                          {emp.clockInTime && <p className="text-xs text-gray-400 mt-1.5">Clocked in {emp.clockInTime}</p>}
+                          <p className="text-xl font-bold text-gray-800">{fmtHrs(emp.hours)}</p>
                         </div>
                       ))}
                     </div>
