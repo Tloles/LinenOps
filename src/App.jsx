@@ -18,6 +18,7 @@ import ProductionFormPage from './pages/ProductionFormPage'
 import UsersPage from './pages/UsersPage'
 import InvoicingPage from './pages/InvoicingPage'
 import ProductionInfoPage from './pages/ProductionInfoPage'
+import LaborPage from './pages/LaborPage'
 
 function ProtectedRoute({ children }) {
   const { session, loading } = useAuth()
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="routes/today" element={<TodayRoutePage />} />
         <Route path="routes/today/:routeId" element={<DriverRoutePage />} />
         <Route path="routes/today/:routeId/stops/:stopId" element={<StopPage />} />
+        <Route path="labor" element={<LaborPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="invoicing" element={<InvoicingPage />} />
       </Route>

@@ -12,6 +12,7 @@ import {
   Building2,
   DollarSign,
   Users as UsersIcon,
+  HardHat,
   Map,
   MoreHorizontal,
   X,
@@ -51,6 +52,7 @@ const SIDEBAR_SECTIONS = [
   {
     label: 'ADMIN',
     items: [
+      { to: '/labor', label: 'Labor', icon: HardHat, show: r => r === 'owner' },
       { to: '/users', label: 'Users', icon: UsersIcon, show: r => r === 'owner' },
     ],
   },
@@ -76,6 +78,7 @@ const PAGE_TITLES = {
   '/production-info': 'Production Status',
   '/customers': 'Customers',
   '/invoicing': 'Invoicing',
+  '/labor': 'Labor',
   '/users': 'Users',
   '/routes': 'Routes',
   '/routes/today': 'Routes',
