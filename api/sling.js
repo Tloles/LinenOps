@@ -30,6 +30,8 @@ export default async function handler(req, res) {
     let data
     if (action === 'users') {
       data = await slingFetch(`${base}/users`)
+    } else if (action === 'positions') {
+      data = await slingFetch(`${base}/positions`)
     } else if (action === 'timesheets') {
       if (!from || !to) {
         return res.status(400).json({ error: 'timesheets requires ?from=YYYY-MM-DD&to=YYYY-MM-DD' })

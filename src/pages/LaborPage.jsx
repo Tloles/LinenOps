@@ -51,6 +51,7 @@ const ROLES = [
 
 export default function LaborPage() {
   const [users, setUsers] = useState([])
+  const [positions, setPositions] = useState([])
   const [timesheets, setTimesheets] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -61,16 +62,19 @@ export default function LaborPage() {
     try {
       setError(null)
       const { from, to } = getDateRange(dateRange)
-      const [usersRes, tsRes] = await Promise.all([
+      const [usersRes, posRes, tsRes] = await Promise.all([
         fetch('/api/sling?action=users'),
+        fetch('/api/sling?action=positions'),
         fetch(`/api/sling?action=timesheets&from=${from}&to=${to}`),
       ])
 
       if (!usersRes.ok) throw new Error(`Users fetch failed (${usersRes.status})`)
+      if (!posRes.ok) throw new Error(`Positions fetch failed (${posRes.status})`)
       if (!tsRes.ok) throw new Error(`Timesheets fetch failed (${tsRes.status})`)
 
-      const [usersData, tsData] = await Promise.all([usersRes.json(), tsRes.json()])
+      const [usersData, posData, tsData] = await Promise.all([usersRes.json(), posRes.json(), tsRes.json()])
       setUsers(Array.isArray(usersData) ? usersData : [])
+      setPositions(Array.isArray(posData) ? posData : [])
       setTimesheets(Array.isArray(tsData) ? tsData : [])
     } catch (err) {
       setError(err.message)
@@ -93,9 +97,17 @@ export default function LaborPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // Build position ID → name lookup
+  const posMap = useMemo(() => {
+    const m = {}
+    positions.forEach(p => { m[p.id] = p.name || '' })
+    return m
+  }, [positions])
+
+  // Only include active users
   const userMap = useMemo(() => {
     const m = {}
-    users.forEach(u => { m[u.id] = u })
+    users.filter(u => u.active !== false).forEach(u => { m[u.id] = u })
     return m
   }, [users])
 
@@ -103,18 +115,24 @@ export default function LaborPage() {
 
   const activeTimesheets = useMemo(() => {
     return timesheets.filter(ts => {
+      const userId = ts.user?.id || ts.userId
+      if (!userMap[userId]) return false // skip inactive users
       const start = ts.dtStart || ts.clockIn
       if (!start) return false
       const startDate = new Date(start).toISOString().slice(0, 10)
       const hasEnd = ts.dtEnd || ts.clockOut
       return startDate === today && !hasEnd
     })
-  }, [timesheets, today])
+  }, [timesheets, today, userMap])
 
+  // Resolve position name for a user via their position IDs
   const getUserPosition = useCallback((userId) => {
     const user = userMap[userId]
-    return user?.type || user?.position || user?.role || ''
-  }, [userMap])
+    if (!user) return ''
+    // Sling users have a positions array of position IDs
+    const posIds = user.positions || []
+    return posIds.map(id => posMap[id] || '').filter(Boolean).join(', ')
+  }, [userMap, posMap])
 
   const getUserName = useCallback((ts) => {
     const user = userMap[ts.user?.id || ts.userId]
@@ -126,6 +144,7 @@ export default function LaborPage() {
     return ROLES.map(role => {
       const roleTimesheets = timesheets.filter(ts => {
         const userId = ts.user?.id || ts.userId
+        if (!userMap[userId]) return false // skip inactive users
         const pos = getUserPosition(userId)
         return role.match(pos)
       })
