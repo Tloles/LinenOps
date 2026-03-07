@@ -460,13 +460,12 @@ export default function LaborPage() {
                         </div>
                       ))}
                     </div>
-                    <div
-                      className="mt-2 flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2.5 border-l-4"
-                      style={{ borderLeftColor: colors.border }}
-                    >
-                      <span className={`text-sm font-bold uppercase tracking-wide ${colors.text}`}>{role}</span>
-                      <span className="text-sm text-gray-400">{group.length} employee{group.length !== 1 ? 's' : ''}</span>
-                      <span className="text-lg font-bold text-gray-900">{fmt$(roleCost)}</span>
+                    <div className="mt-2 flex justify-end">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${colors.bg} ${colors.text}`}
+                      >
+                        {role} Total: <span className="font-bold">{fmt$(roleCost)}</span>
+                      </span>
                     </div>
                   </div>
                 )
