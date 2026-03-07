@@ -66,19 +66,15 @@ function getDateRange(range) {
 function getPayRate(user) {
   if (!user) return 0
   const wages = user.wages
-  if (!wages) return 0
-  // 1. Try wages.base (employee base wage)
-  const baseWages = wages.base
-  if (Array.isArray(baseWages) && baseWages.length > 0) {
-    const entry = baseWages[baseWages.length - 1]
-    const rate = parseFloat(entry.regularRate)
-    if (!isNaN(rate) && rate > 0 && !entry.isSalary) return rate
-  }
-  // 2. Try wages.positions array — per-position rates
-  const positions = wages.positions
-  if (Array.isArray(positions)) {
-    for (const pos of positions) {
-      const rate = parseFloat(pos.regularRate)
+  if (!wages || typeof wages !== 'object') return 0
+  // 1. Try wages.base as a direct rate
+  const baseRate = parseFloat(wages.base)
+  if (!isNaN(baseRate) && baseRate > 0) return baseRate
+  // 2. Flatten all wage entries (wages is keyed by position ID)
+  const allEntries = Object.values(wages).flat()
+  for (const entry of allEntries) {
+    if (entry && typeof entry === 'object') {
+      const rate = parseFloat(entry.regularRate)
       if (!isNaN(rate) && rate > 0) return rate
     }
   }
