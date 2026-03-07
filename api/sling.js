@@ -43,7 +43,8 @@ export default async function handler(req, res) {
       if (!from || !to) {
         return res.status(400).json({ error: 'timesheets requires ?from=YYYY-MM-DD&to=YYYY-MM-DD' })
       }
-      data = await slingFetch(`${base}/reports/timesheets?dates=${from}/${to}`)
+      // Use /timesheets for actual clock-in/out records (not /reports/timesheets which returns schedule)
+      data = await slingFetch(`${base}/timesheets?dates=${from}/${to}`)
     } else {
       return res.status(400).json({ error: `Unknown action: ${action}` })
     }

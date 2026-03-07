@@ -22,8 +22,8 @@ function getDateRange(range) {
 }
 
 function getHours(ts, tick) {
-  const start = new Date(ts.dtStart || ts.clockIn)
-  const end = ts.dtEnd || ts.clockOut ? new Date(ts.dtEnd || ts.clockOut) : new Date()
+  const start = new Date(ts.dtstart || ts.clockIn)
+  const end = ts.dtend || ts.clockOut ? new Date(ts.dtend || ts.clockOut) : new Date()
   void tick
   return Math.max(0, (end - start) / 3600000)
 }
@@ -130,10 +130,10 @@ export default function LaborPage() {
   // FIX: Don't gate on userMap — use timesheet's embedded user data as fallback
   const activeTimesheets = useMemo(() => {
     return timesheets.filter(ts => {
-      const start = ts.dtStart || ts.clockIn
+      const start = ts.dtstart || ts.clockIn
       if (!start) return false
       const startDate = new Date(start).toISOString().slice(0, 10)
-      const hasEnd = ts.dtEnd || ts.clockOut
+      const hasEnd = ts.dtend || ts.clockOut
       return startDate === today && !hasEnd
     })
   }, [timesheets, today])
